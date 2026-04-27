@@ -7,6 +7,7 @@ import 'chat_screen.dart';
 import 'rewards_screen.dart';
 import 'requests_screen.dart';
 import 'settings_screen.dart';
+import 'task_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -509,7 +510,7 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  Widget _taskCard(Map<String, dynamic> task) {
+ Widget _taskCard(Map<String, dynamic> task) {
     Color statusColor;
     switch (task['status']) {
       case 'Completed':
@@ -538,68 +539,76 @@ class _HomeScreenState extends State<HomeScreen> {
     final avatar = assignedUser?['avatar'] ?? '👤';
     final name = assignedUser?['name'] ?? 'Unknown';
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: AppTheme.surface,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: AppTheme.primary.withOpacity(0.06),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => TaskDetailScreen(task: task),
+        ),
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: AppTheme.cardBg,
-              borderRadius: BorderRadius.circular(20),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: AppTheme.primary.withOpacity(0.06),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
             ),
-            child: Center(
-              child: Text(avatar, style: const TextStyle(fontSize: 22)),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: AppTheme.cardBg,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Center(
+                child: Text(avatar, style: const TextStyle(fontSize: 22)),
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  task['title'] ?? '',
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 14,
-                    color: AppTheme.textDark,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    task['title'] ?? '',
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 14,
+                      color: AppTheme.textDark,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppTheme.textMedium,
+                  const SizedBox(height: 4),
+                  Text(
+                    name,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppTheme.textMedium,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    _chip('${task['points']} pts', AppTheme.primary),
-                    const SizedBox(width: 6),
-                    _chip(task['difficulty'] ?? '', difficultyColor),
-                    const SizedBox(width: 6),
-                    _chip(task['status'] ?? '', statusColor),
-                  ],
-                ),
-              ],
+                  const SizedBox(height: 6),
+                  Row(
+                    children: [
+                      _chip('${task['points']} pts', AppTheme.primary),
+                      const SizedBox(width: 6),
+                      _chip(task['difficulty'] ?? '', difficultyColor),
+                      const SizedBox(width: 6),
+                      _chip(task['status'] ?? '', statusColor),
+                    ],
+                  ),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
