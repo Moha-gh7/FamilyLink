@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
+import '../services/data_service.dart';
 
 class RequestsScreen extends StatefulWidget {
   const RequestsScreen({super.key});
@@ -11,60 +12,25 @@ class RequestsScreen extends StatefulWidget {
 class _RequestsScreenState extends State<RequestsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final _dataService = DataService();
 
-  final List<Map<String, dynamic>> doneTasks = [
-    {
-      'emoji': '👦',
-      'name': 'Yusuf',
-      'task': 'Clean your bedroom',
-      'points': 30,
-      'time': '2 hours ago',
-      'hasPhoto': true,
-    },
-    {
-      'emoji': '👧',
-      'name': 'Aisha',
-      'task': 'Wash the dishes',
-      'points': 20,
-      'time': '5 hours ago',
-      'hasPhoto': true,
-    },
-  ];
-
-  final List<Map<String, dynamic>> transfers = [
-    {
-      'emoji': '👦',
-      'name': 'Yusuf',
-      'task': 'Take out the trash',
-      'transferTo': 'Aisha',
-      'time': '1 hour ago',
-    },
-  ];
-
-  final List<Map<String, dynamic>> timeRequests = [
-    {
-      'emoji': '👧',
-      'name': 'Aisha',
-      'task': 'Do the laundry',
-      'reason': 'I have extra homework today',
-      'time': '3 hours ago',
-    },
-  ];
-
-  final List<Map<String, dynamic>> rewardRequests = [
-    {
-      'emoji': '👦',
-      'name': 'Yusuf',
-      'reward': 'Movie Night',
-      'points': 200,
-      'time': '1 day ago',
-    },
-  ];
+  List<Map<String, dynamic>> _doneTasks = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 5, vsync: this);
+    _loadData();
+  }
+
+  Future<void> _loadData() async {
+    setState(() => _isLoading = true);
+    final tasks = await _dataService.getPendingApprovals();
+    setState(() {
+      _doneTasks = tasks;
+      _isLoading = false;
+    });
   }
 
   @override
@@ -99,7 +65,8 @@ class _RequestsScreenState extends State<RequestsScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    icon: const Icon(Icons.arrow_back,
+                        color: Colors.white),
                     onPressed: () => Navigator.pop(context),
                     padding: EdgeInsets.zero,
                   ),
@@ -118,14 +85,13 @@ class _RequestsScreenState extends State<RequestsScreen>
                   Padding(
                     padding: const EdgeInsets.only(left: 8, bottom: 16),
                     child: Text(
-                      '${doneTasks.length + transfers.length + timeRequests.length + rewardRequests.length} pending requests',
+                      '${_doneTasks.length} pending requests',
                       style: const TextStyle(
                         fontSize: 13,
                         color: Colors.white70,
                       ),
                     ),
                   ),
-                  // Tabs
                   TabBar(
                     controller: _tabController,
                     isScrollable: true,
@@ -150,16 +116,20 @@ class _RequestsScreenState extends State<RequestsScreen>
 
             // Tab content
             Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _emptyTab('No pending task requests'),
-                  _doneTab(),
-                  _rewardsTab(),
-                  _transfersTab(),
-                  _timeTab(),
-                ],
-              ),
+              child: _isLoading
+                  ? const Center(
+                      child: CircularProgressIndicator(
+                          color: AppTheme.primary))
+                  : TabBarView(
+                      controller: _tabController,
+                      children: [
+                        _emptyTab('No pending task requests'),
+                        _doneTab(),
+                        _emptyTab('No reward requests pending'),
+                        _emptyTab('No transfer requests pending'),
+                        _emptyTab('No time extension requests'),
+                      ],
+                    ),
             ),
           ],
         ),
@@ -172,7 +142,8 @@ class _RequestsScreenState extends State<RequestsScreen>
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.inbox_outlined, size: 60, color: AppTheme.textLight),
+          Icon(Icons.inbox_outlined,
+              size: 60, color: AppTheme.textLight),
           const SizedBox(height: 12),
           Text(
             message,
@@ -187,131 +158,80 @@ class _RequestsScreenState extends State<RequestsScreen>
   }
 
   Widget _doneTab() {
-    if (doneTasks.isEmpty) return _emptyTab('No completed tasks pending');
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: doneTasks.length,
-      itemBuilder: (context, index) {
-        final task = doneTasks[index];
-        return _requestCard(
-          emoji: task['emoji'],
-          title: task['task'],
-          subtitle: '${task['name']} • ${task['time']}',
-          tag: '${task['points']} pts',
-          tagColor: AppTheme.primary,
-          extraWidget: task['hasPhoto']
-              ? Container(
-                  margin: const EdgeInsets.only(top: 8),
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 10, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: AppTheme.cardBg,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Icon(Icons.photo_camera_outlined,
-                          size: 14, color: AppTheme.primary),
-                      SizedBox(width: 4),
-                      Text('Photo proof uploaded',
-                          style: TextStyle(
-                              fontSize: 11, color: AppTheme.primary)),
-                    ],
-                  ),
-                )
-              : null,
-          onApprove: () => setState(() => doneTasks.removeAt(index)),
-          onReject: () => setState(() => doneTasks.removeAt(index)),
-        );
-      },
-    );
-  }
-
-  Widget _rewardsTab() {
-    if (rewardRequests.isEmpty) {
-      return _emptyTab('No reward requests pending');
+    if (_doneTasks.isEmpty) {
+      return _emptyTab('No completed tasks pending approval');
     }
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: rewardRequests.length,
-      itemBuilder: (context, index) {
-        final reward = rewardRequests[index];
-        return _requestCard(
-          emoji: reward['emoji'],
-          title: '${reward['name']} wants: ${reward['reward']}',
-          subtitle: reward['time'],
-          tag: '${reward['points']} pts',
-          tagColor: AppTheme.warning,
-          onApprove: () =>
-              setState(() => rewardRequests.removeAt(index)),
-          onReject: () =>
-              setState(() => rewardRequests.removeAt(index)),
-          approveLabel: 'Fulfilled',
-        );
-      },
-    );
-  }
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      color: AppTheme.primary,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: _doneTasks.length,
+        itemBuilder: (context, index) {
+          final task = _doneTasks[index];
+          final assignedUser = task['assigned_user'];
+          final avatar = assignedUser?['avatar'] ?? '👤';
+          final name = assignedUser?['name'] ?? 'Unknown';
 
-  Widget _transfersTab() {
-    if (transfers.isEmpty) {
-      return _emptyTab('No transfer requests pending');
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: transfers.length,
-      itemBuilder: (context, index) {
-        final transfer = transfers[index];
-        return _requestCard(
-          emoji: transfer['emoji'],
-          title: transfer['task'],
-          subtitle:
-              '${transfer['name']} → ${transfer['transferTo']} • ${transfer['time']}',
-          tag: 'Transfer',
-          tagColor: AppTheme.secondary,
-          onApprove: () => setState(() => transfers.removeAt(index)),
-          onReject: () => setState(() => transfers.removeAt(index)),
-        );
-      },
-    );
-  }
-
-  Widget _timeTab() {
-    if (timeRequests.isEmpty) {
-      return _emptyTab('No time extension requests');
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: timeRequests.length,
-      itemBuilder: (context, index) {
-        final req = timeRequests[index];
-        return _requestCard(
-          emoji: req['emoji'],
-          title: req['task'],
-          subtitle: '${req['name']} • ${req['time']}',
-          tag: 'Extension',
-          tagColor: AppTheme.warning,
-          extraWidget: Container(
-            margin: const EdgeInsets.only(top: 8),
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: AppTheme.cardBg,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              '"${req['reason']}"',
-              style: const TextStyle(
-                fontSize: 12,
-                color: AppTheme.textMedium,
-                fontStyle: FontStyle.italic,
+          return _requestCard(
+            emoji: avatar,
+            title: task['title'] ?? '',
+            subtitle: '$name • ${task['points']} pts',
+            tag: '${task['points']} pts',
+            tagColor: AppTheme.primary,
+            extraWidget: Container(
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppTheme.cardBg,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.photo_camera_outlined,
+                      size: 14, color: AppTheme.primary),
+                  SizedBox(width: 4),
+                  Text('Waiting for photo proof',
+                      style: TextStyle(
+                          fontSize: 11, color: AppTheme.primary)),
+                ],
               ),
             ),
-          ),
-          onApprove: () => setState(() => timeRequests.removeAt(index)),
-          onReject: () => setState(() => timeRequests.removeAt(index)),
-        );
-      },
+            onApprove: () async {
+              final assignedTo = task['assigned_to'];
+              final points = task['points'] as int;
+              final success = await _dataService.approveTask(
+                  task['id'], points, assignedTo);
+              if (success) {
+                _loadData();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Task approved! Points added ✅'),
+                      backgroundColor: AppTheme.success,
+                    ),
+                  );
+                }
+              }
+            },
+            onReject: () async {
+              await _dataService.updateTaskStatus(
+                  task['id'], 'Pending');
+              _loadData();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Task rejected — sent back to Pending'),
+                    backgroundColor: AppTheme.error,
+                  ),
+                );
+              }
+            },
+          );
+        },
+      ),
     );
   }
 
@@ -353,8 +273,8 @@ class _RequestsScreenState extends State<RequestsScreen>
                   borderRadius: BorderRadius.circular(20),
                 ),
                 child: Center(
-                  child:
-                      Text(emoji, style: const TextStyle(fontSize: 22)),
+                  child: Text(emoji,
+                      style: const TextStyle(fontSize: 22)),
                 ),
               ),
               const SizedBox(width: 10),
