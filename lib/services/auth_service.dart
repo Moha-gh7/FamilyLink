@@ -16,52 +16,54 @@ class AuthService {
     return code;
   }
 
-  // CREATE NEW FAMILY (parent registers)
   Future<Map<String, dynamic>> createFamily({
-    required String familyName,
-    required String name,
-    required String email,
-    required String password,
-    required String avatar,
-  }) async {
-    try {
-      // 1. Create auth account
-      final authResponse = await _supabase.auth.signUp(
-        email: email,
-        password: password,
-      );
+  required String familyName,
+  required String name,
+  required String email,
+  required String password,
+  required String avatar,
+}) async {
+  try {
+    // 1. Create auth account
+    final authResponse = await _supabase.auth.signUp(
+      email: email,
+      password: password,
+    );
 
-      if (authResponse.user == null) {
-        return {'success': false, 'message': 'Failed to create account'};
-      }
-
-      // 2. Create family record
-      final joinCode = _generateJoinCode();
-      final familyResponse = await _supabase
-          .from('families')
-          .insert({'name': familyName, 'join_code': joinCode})
-          .select()
-          .single();
-
-      // 3. Create user profile
-      await _supabase.from('users').insert({
-        'id': authResponse.user!.id,
-        'family_id': familyResponse['id'],
-        'name': name,
-        'role': 'Parent',
-        'avatar': avatar,
-        'points': 0,
-      });
-
-      return {
-        'success': true,
-        'join_code': joinCode,
-        'message': 'Family created successfully!'
-      };
-    } catch (e) {
-      return {'success': false, 'message': e.toString()};
+    if (authResponse.user == null) {
+      return {'success': false, 'message': 'Failed to create account'};
     }
+
+    // 2. Wait a moment for auth to settle
+    await Future.delayed(const Duration(seconds: 1));
+
+    // 3. Create family record
+    final joinCode = _generateJoinCode();
+    final familyResponse = await _supabase
+        .from('families')
+        .insert({'name': familyName, 'join_code': joinCode})
+        .select()
+        .single();
+
+    // 4. Create user profile
+    await _supabase.from('users').insert({
+      'id': authResponse.user!.id,
+      'family_id': familyResponse['id'],
+      'name': name,
+      'role': 'Parent',
+      'avatar': avatar,
+      'points': 0,
+    });
+
+    return {
+      'success': true,
+      'join_code': joinCode,
+      'message': 'Family created successfully!'
+    };
+  } catch (e) {
+    return {'success': false, 'message': e.toString()};
   }
+}
 
   // JOIN EXISTING FAMILY (member joins with code)
   Future<Map<String, dynamic>> joinFamily({
