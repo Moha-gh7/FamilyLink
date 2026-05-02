@@ -54,6 +54,42 @@ class DataService {
     }
   }
 
+  Future<bool> updateUserName(String newName) async {
+    try {
+      await _supabase
+          .from('users')
+          .update({'name': newName})
+          .eq('id', currentUserId!);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> updateUserAvatar(String newAvatar) async {
+    try {
+      await _supabase
+          .from('users')
+          .update({'avatar': newAvatar})
+          .eq('id', currentUserId!);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> updateFamilyName(String familyId, String newName) async {
+    try {
+      await _supabase
+          .from('families')
+          .update({'name': newName})
+          .eq('id', familyId);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   // ─── TASKS ───
   Future<List<Map<String, dynamic>>> getTodaysTasks() async {
   try {
