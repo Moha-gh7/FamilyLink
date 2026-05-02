@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../theme.dart';
 import '../services/data_service.dart';
+import '../widgets/skeleton_loader.dart';
 import 'new_task_screen.dart';
 import 'feed_screen.dart';
 import 'chat_screen.dart';
@@ -71,15 +72,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (_isLoading) {
-      return const Scaffold(
-        backgroundColor: AppTheme.background,
-        body: Center(
-          child: CircularProgressIndicator(color: AppTheme.primary),
-        ),
-      );
-    }
-
     return Scaffold(
       backgroundColor: AppTheme.background,
       body: SafeArea(
@@ -91,18 +83,42 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildHeader(),
+                _isLoading ? SkeletonProfileHeader() : _buildHeader(),
                 Padding(
                   padding: const EdgeInsets.all(16),
-                  child: _buildActionButtons(),
+                  child: _isLoading
+                      ? SkeletonLoader(
+                          isLoading: true,
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                            children: List.generate(
+                              3,
+                              (index) => SkeletonBox(
+                                width: 100,
+                                height: 80,
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        )
+                      : _buildActionButtons(),
                 ),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: _buildFamilyMembers(),
+                  child: _isLoading
+                      ? SkeletonFamilyMembersList()
+                      : _buildFamilyMembers(),
                 ),
                 Padding(
                   padding: const EdgeInsets.all(16),
-                  child: _buildTodaysTasks(),
+                  child: _isLoading
+                      ? Column(
+                          children: List.generate(
+                            3,
+                            (index) => SkeletonTaskCard(),
+                          ),
+                        )
+                      : _buildTodaysTasks(),
                 ),
               ],
             ),
