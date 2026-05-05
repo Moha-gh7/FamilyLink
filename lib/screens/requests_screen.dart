@@ -33,6 +33,75 @@ class _RequestsScreenState extends State<RequestsScreen>
     });
   }
 
+  void _showPhotoDialog(String photoUrl) {
+    showDialog(
+      context: context,
+      builder: (context) => Dialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Container(
+          constraints: const BoxConstraints(maxHeight: 500),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.primary,
+                  borderRadius: const BorderRadius.vertical(
+                    top: Radius.circular(16),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.photo, color: Colors.white),
+                    const SizedBox(width: 8),
+                    const Text(
+                      'Task Proof',
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const Spacer(),
+                    IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => Navigator.pop(context),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  child: Image.network(
+                    photoUrl,
+                    fit: BoxFit.contain,
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          color: AppTheme.primary,
+                        ),
+                      );
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return const Center(
+                        child: Text('Failed to load image'),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   void dispose() {
     _tabController.dispose();
@@ -179,26 +248,47 @@ class _RequestsScreenState extends State<RequestsScreen>
             subtitle: '$name • ${task['points']} pts',
             tag: '${task['points']} pts',
             tagColor: AppTheme.primary,
-            extraWidget: Container(
-              margin: const EdgeInsets.only(top: 8),
-              padding: const EdgeInsets.symmetric(
-                  horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                color: AppTheme.cardBg,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: const Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.photo_camera_outlined,
-                      size: 14, color: AppTheme.primary),
-                  SizedBox(width: 4),
-                  Text('Waiting for photo proof',
-                      style: TextStyle(
-                          fontSize: 11, color: AppTheme.primary)),
-                ],
-              ),
-            ),
+            extraWidget: task['photo_proof_url'] != null
+                ? Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppTheme.success.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.check_circle,
+                            size: 14, color: AppTheme.success),
+                        SizedBox(width: 4),
+                        Text('Photo proof available',
+                            style: TextStyle(
+                                fontSize: 11, color: AppTheme.success)),
+                      ],
+                    ),
+                  )
+                : Container(
+                    margin: const EdgeInsets.only(top: 8),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardBg,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.photo_camera_outlined,
+                            size: 14, color: AppTheme.primary),
+                        SizedBox(width: 4),
+                        Text('Waiting for photo proof',
+                            style: TextStyle(
+                                fontSize: 11, color: AppTheme.primary)),
+                      ],
+                    ),
+                  ),
             onApprove: () async {
               final assignedTo = task['assigned_to'];
               final points = task['points'] as int;
@@ -229,6 +319,9 @@ class _RequestsScreenState extends State<RequestsScreen>
                 );
               }
             },
+            onViewPhoto: task['photo_proof_url'] != null
+                ? () => _showPhotoDialog(task['photo_proof_url'])
+                : null,
           );
         },
       ),
@@ -243,6 +336,7 @@ class _RequestsScreenState extends State<RequestsScreen>
     required Color tagColor,
     required VoidCallback onApprove,
     required VoidCallback onReject,
+    VoidCallback? onViewPhoto,
     String approveLabel = 'Approve',
     Widget? extraWidget,
   }) {
@@ -320,6 +414,27 @@ class _RequestsScreenState extends State<RequestsScreen>
           ),
           if (extraWidget != null) extraWidget,
           const SizedBox(height: 12),
+          if (onViewPhoto != null) ...[
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: onViewPhoto,
+                icon: const Icon(Icons.photo_camera, color: AppTheme.primary),
+                label: const Text(
+                  'View Photo Proof',
+                  style: TextStyle(color: AppTheme.primary),
+                ),
+                style: OutlinedButton.styleFrom(
+                  side: const BorderSide(color: AppTheme.primary),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  padding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
+            ),
+            const SizedBox(height: 8),
+          ],
           Row(
             children: [
               Expanded(
