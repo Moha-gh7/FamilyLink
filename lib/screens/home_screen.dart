@@ -240,6 +240,8 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildActionButtons() {
+    final isParent = _currentUser?['role'] == 'Parent';
+
     return Column(
       children: [
         Row(
@@ -304,18 +306,20 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 12),
-        _actionButton(
-          icon: Icons.notifications_outlined,
-          label: 'Requests',
-          color: AppTheme.accent,
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-                builder: (context) => const RequestsScreen()),
+        if (isParent) ...[
+          const SizedBox(height: 12),
+          _actionButton(
+            icon: Icons.notifications_outlined,
+            label: 'Requests',
+            color: AppTheme.accent,
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const RequestsScreen()),
+            ),
+            fullWidth: true,
           ),
-          fullWidth: true,
-        ),
+        ],
       ],
     );
   }

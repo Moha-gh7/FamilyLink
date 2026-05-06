@@ -70,7 +70,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
 
     // Sort members by points
     members.sort((a, b) =>
-        (b['points'] as int).compareTo(a['points'] as int));
+        ((b['points'] ?? 0) as int).compareTo((a['points'] ?? 0) as int));
 
     setState(() {
       _members = members;
@@ -92,6 +92,242 @@ class _RewardsScreenState extends State<RewardsScreen> {
     }
   }
 
+  Future<void> _showAddRewardDialog() async {
+    final titleController = TextEditingController();
+    final descController = TextEditingController();
+    String selectedEmoji = '🎁';
+    int points = 100;
+    bool isSaving = false;
+
+    final screenContext = context;
+
+    final emojiOptions = [
+      '🎁', '🍦', '🎬', '🎮', '🍕', '🏖️', '📚', '🍔',
+      '🎨', '🏆', '🎉', '🛍️', '🍭', '🎯', '🚀', '⭐',
+      '🎠', '💆', '🍰', '🎪',
+    ];
+
+    final templates = [
+      {'emoji': '🍦', 'title': 'Ice Cream Trip', 'desc': 'Family outing to favorite ice cream shop', 'points': 150},
+      {'emoji': '🎬', 'title': 'Movie Night', 'desc': 'Choose any movie + popcorn', 'points': 200},
+      {'emoji': '🎮', 'title': 'Extra Screen Time', 'desc': '1 hour extra phone/game time', 'points': 100},
+      {'emoji': '🍕', 'title': 'Pizza Night', 'desc': 'Pick your favorite pizza toppings', 'points': 175},
+      {'emoji': '🎁', 'title': 'Mystery Gift', 'desc': 'A surprise gift from parents', 'points': 500},
+      {'emoji': '🏖️', 'title': 'Beach Trip', 'desc': 'A fun day out at the beach', 'points': 300},
+      {'emoji': '🍔', 'title': 'Favorite Restaurant', 'desc': 'Dinner at your chosen restaurant', 'points': 250},
+      {'emoji': '💆', 'title': 'No Chores Day', 'desc': 'A full day off from chores', 'points': 200},
+    ];
+
+    await showDialog(
+      context: screenContext,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (dialogContext, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Add New Reward', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Quick templates
+                const Text('Quick Templates', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textMedium)),
+                const SizedBox(height: 8),
+                SizedBox(
+                  height: 80,
+                  child: ListView.builder(
+                    scrollDirection: Axis.horizontal,
+                    itemCount: templates.length,
+                    itemBuilder: (_, i) {
+                      final t = templates[i];
+                      return GestureDetector(
+                        onTap: () => setDialogState(() {
+                          selectedEmoji = t['emoji'] as String;
+                          titleController.text = t['title'] as String;
+                          descController.text = t['desc'] as String;
+                          points = t['points'] as int;
+                        }),
+                        child: Container(
+                          width: 70,
+                          margin: const EdgeInsets.only(right: 8),
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: titleController.text == t['title']
+                                ? AppTheme.primary.withOpacity(0.12)
+                                : AppTheme.cardBg,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(
+                              color: titleController.text == t['title']
+                                  ? AppTheme.primary
+                                  : Colors.transparent,
+                              width: 1.5,
+                            ),
+                          ),
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(t['emoji'] as String, style: const TextStyle(fontSize: 24)),
+                              const SizedBox(height: 4),
+                              Text(
+                                t['title'] as String,
+                                style: const TextStyle(fontSize: 9, color: AppTheme.textDark),
+                                textAlign: TextAlign.center,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Emoji picker
+                const Text('Choose Emoji', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textMedium)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: emojiOptions.map((e) {
+                    final isSelected = selectedEmoji == e;
+                    return GestureDetector(
+                      onTap: () => setDialogState(() => selectedEmoji = e),
+                      child: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: isSelected ? AppTheme.primary.withOpacity(0.15) : AppTheme.cardBg,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(
+                            color: isSelected ? AppTheme.primary : Colors.transparent,
+                            width: 2,
+                          ),
+                        ),
+                        child: Center(child: Text(e, style: const TextStyle(fontSize: 20))),
+                      ),
+                    );
+                  }).toList(),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Title
+                TextField(
+                  controller: titleController,
+                  decoration: InputDecoration(
+                    labelText: 'Title *',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppTheme.primary, width: 2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+
+                // Description
+                TextField(
+                  controller: descController,
+                  maxLines: 2,
+                  decoration: InputDecoration(
+                    labelText: 'Description',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(10),
+                      borderSide: const BorderSide(color: AppTheme.primary, width: 2),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Points picker
+                Row(
+                  children: [
+                    const Text('Points required:', style: TextStyle(fontWeight: FontWeight.w600)),
+                    const Spacer(),
+                    IconButton(
+                      onPressed: () => setDialogState(() { if (points > 10) points -= 10; }),
+                      icon: const Icon(Icons.remove_circle_outline, color: AppTheme.primary),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primary.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text('$points', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primary)),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      onPressed: () => setDialogState(() => points += 10),
+                      icon: const Icon(Icons.add_circle_outline, color: AppTheme.primary),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: isSaving ? null : () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
+              onPressed: isSaving
+                  ? null
+                  : () async {
+                      if (titleController.text.trim().isEmpty) {
+                        ScaffoldMessenger.of(dialogContext).showSnackBar(
+                          const SnackBar(content: Text('Please enter a title')),
+                        );
+                        return;
+                      }
+                      setDialogState(() => isSaving = true);
+                      final success = await _dataService.createReward(
+                        emoji: selectedEmoji,
+                        title: titleController.text.trim(),
+                        description: descController.text.trim(),
+                        pointsCost: points,
+                      );
+                      if (!mounted) return;
+                      Navigator.pop(dialogContext);
+                      if (success) {
+                        _loadData();
+                        ScaffoldMessenger.of(screenContext).showSnackBar(
+                          const SnackBar(
+                            content: Text('Reward added! 🎁'),
+                            backgroundColor: AppTheme.success,
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(screenContext).showSnackBar(
+                          const SnackBar(
+                            content: Text('Failed to save reward. Check your connection and try again.'),
+                            backgroundColor: AppTheme.error,
+                          ),
+                        );
+                      }
+                    },
+              child: isSaving
+                  ? const SizedBox(width: 18, height: 18, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Text('Save', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+    titleController.dispose();
+    descController.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
@@ -105,8 +341,17 @@ class _RewardsScreenState extends State<RewardsScreen> {
 
     final userPoints = _currentUser?['points'] ?? 0;
 
+    final isParent = _currentUser?['role'] == 'Parent';
+
     return Scaffold(
       backgroundColor: AppTheme.background,
+      floatingActionButton: isParent
+          ? FloatingActionButton(
+              backgroundColor: AppTheme.primary,
+              onPressed: _showAddRewardDialog,
+              child: const Icon(Icons.add, color: Colors.white),
+            )
+          : null,
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
@@ -431,9 +676,10 @@ class _RewardsScreenState extends State<RewardsScreen> {
           if (canAfford)
             GestureDetector(
               onTap: () {
+                final screenContext = context;
                 showDialog(
-                  context: context,
-                  builder: (context) => AlertDialog(
+                  context: screenContext,
+                  builder: (dialogContext) => AlertDialog(
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
@@ -443,19 +689,33 @@ class _RewardsScreenState extends State<RewardsScreen> {
                     ),
                     actions: [
                       TextButton(
-                        onPressed: () => Navigator.pop(context),
+                        onPressed: () => Navigator.pop(dialogContext),
                         child: const Text('Cancel'),
                       ),
                       ElevatedButton(
                         onPressed: () async {
-                          Navigator.pop(context);
-                          // TODO: Connect to redemptions table
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Reward redeemed! 🎉'),
-                              backgroundColor: AppTheme.success,
-                            ),
+                          Navigator.pop(dialogContext);
+                          final success = await _dataService.redeemReward(
+                            rewardTitle: reward['title'] ?? '',
+                            pointsCost: pointsCost,
                           );
+                          if (!mounted) return;
+                          if (success) {
+                            _loadData();
+                            ScaffoldMessenger.of(screenContext).showSnackBar(
+                              const SnackBar(
+                                content: Text('Reward redeemed! 🎉 Your parent has been notified.'),
+                                backgroundColor: AppTheme.success,
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(screenContext).showSnackBar(
+                              const SnackBar(
+                                content: Text('Redemption failed. Try again.'),
+                                backgroundColor: AppTheme.error,
+                              ),
+                            );
+                          }
                         },
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppTheme.primary,

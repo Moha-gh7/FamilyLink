@@ -28,6 +28,15 @@ class _RegisterScreenState extends State<RegisterScreen> {
     {'emoji': '👵', 'label': 'Grandma'},
   ];
 
+  @override
+  void dispose() {
+    _familyNameController.dispose();
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    super.dispose();
+  }
+
   Future<void> _createFamily() async {
     // Validate fields
     if (_familyNameController.text.isEmpty ||
@@ -50,6 +59,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       avatar: _avatars[_selectedAvatar]['emoji'],
     );
 
+    if (!mounted) return;
     setState(() => _isLoading = false);
 
     if (result['success']) {

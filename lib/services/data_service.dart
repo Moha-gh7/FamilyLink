@@ -105,6 +105,7 @@ class DataService {
         .from('tasks')
         .select('*, assigned_user:users!assigned_to(name, avatar)')
         .eq('family_id', user['family_id'])
+        .neq('status', 'Pending Approval')
         .order('created_at', ascending: false);
 
     return List<Map<String, dynamic>>.from(tasks);
@@ -125,6 +126,7 @@ class DataService {
           .from('tasks')
           .select('*, assigned_user:users!assigned_to(name, avatar)')
           .eq('family_id', user['family_id'])
+          .neq('status', 'Pending Approval')
           .order('created_at', ascending: false);
 
       return List<Map<String, dynamic>>.from(tasks);
@@ -145,38 +147,34 @@ class DataService {
     try {
       final user = await _supabase
           .from('users')
-          .select('family_id')
+          .select('family_id, role')
           .eq('id', currentUserId!)
           .single();
 
-      // Find assigned user by name
-      final assignedUser = await _supabase
-          .from('users')
-          .select('id')
-          .eq('family_id', user['family_id'])
-          .eq('name', assignedTo)
-          .single();
+      final isParent = user['role'] == 'Parent';
+      final status = isParent ? 'Pending' : 'Pending Approval';
 
       await _supabase.from('tasks').insert({
         'family_id': user['family_id'],
         'title': title,
         'description': description,
-        'assigned_to': assignedUser['id'],
+        'assigned_to': assignedTo,
         'created_by': currentUserId,
         'due_date': dueDate.toIso8601String(),
         'difficulty': difficulty,
         'recurrence': recurrence,
         'points': points,
-        'status': 'Pending',
+        'status': status,
       });
 
-      // Add to activity feed
-      await _supabase.from('activity_feed').insert({
-        'family_id': user['family_id'],
-        'user_id': currentUserId,
-        'type': 'assigned',
-        'content': 'New task "$title" assigned to $assignedTo',
-      });
+      if (isParent) {
+        await _supabase.from('activity_feed').insert({
+          'family_id': user['family_id'],
+          'user_id': currentUserId,
+          'type': 'assigned',
+          'content': 'New task "$title" was assigned',
+        });
+      }
 
       return true;
     } catch (e) {
@@ -248,7 +246,7 @@ class DataService {
           .from('messages')
           .select('*, sender:users!user_id(name, avatar)')
           .eq('family_id', user['family_id'])
-          .order('created_at');
+          .order('created_at', ascending: false);
 
       return List<Map<String, dynamic>>.from(messages);
     } catch (e) {
@@ -295,6 +293,32 @@ class DataService {
     }
   }
 
+  Future<bool> createReward({
+    required String emoji,
+    required String title,
+    required String description,
+    required int pointsCost,
+  }) async {
+    try {
+      final user = await _supabase
+          .from('users')
+          .select('family_id')
+          .eq('id', currentUserId!)
+          .single();
+
+      await _supabase.from('rewards').insert({
+        'family_id': user['family_id'],
+        'emoji': emoji,
+        'title': title,
+        'description': description,
+        'points_cost': pointsCost,
+      });
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   // ─── ACTIVITY FEED ───
   Future<List<Map<String, dynamic>>> getActivityFeed() async {
     try {
@@ -314,6 +338,49 @@ class DataService {
       return List<Map<String, dynamic>>.from(feed);
     } catch (e) {
       return [];
+    }
+  }
+
+  // ─── REQUESTS (Child-created tasks pending parent approval) ───
+  Future<List<Map<String, dynamic>>> getPendingTaskApprovals() async {
+    try {
+      final user = await _supabase
+          .from('users')
+          .select('family_id')
+          .eq('id', currentUserId!)
+          .single();
+
+      final tasks = await _supabase
+          .from('tasks')
+          .select('*, assigned_user:users!assigned_to(name, avatar), creator:users!created_by(name, avatar)')
+          .eq('family_id', user['family_id'])
+          .eq('status', 'Pending Approval')
+          .order('created_at', ascending: false);
+
+      return List<Map<String, dynamic>>.from(tasks);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<bool> approveTaskCreation(String taskId) async {
+    try {
+      await _supabase
+          .from('tasks')
+          .update({'status': 'Pending'})
+          .eq('id', taskId);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> rejectTaskCreation(String taskId) async {
+    try {
+      await _supabase.from('tasks').delete().eq('id', taskId);
+      return true;
+    } catch (e) {
+      return false;
     }
   }
 
@@ -340,16 +407,168 @@ class DataService {
 
   Future<bool> approveTask(String taskId, int points, String userId) async {
     try {
-      // Update task status
+      final task = await _supabase
+          .from('tasks')
+          .select('title, family_id, assigned_user:users!assigned_to(name)')
+          .eq('id', taskId)
+          .single();
+
       await _supabase
           .from('tasks')
           .update({'status': 'Completed'})
           .eq('id', taskId);
 
-      // Add points to user
       await _supabase.rpc('increment_points',
           params: {'user_id': userId, 'points_to_add': points});
 
+      final assignedName = task['assigned_user']?['name'] ?? 'Someone';
+      await _supabase.from('activity_feed').insert({
+        'family_id': task['family_id'],
+        'user_id': userId,
+        'type': 'completed',
+        'content': '$assignedName completed "${task['title']}" and earned $points pts! 🎉',
+      });
+
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ─── TRANSFER TASK ───
+  Future<bool> transferTask(String taskId, String newAssignedToId) async {
+    try {
+      final task = await _supabase
+          .from('tasks')
+          .select('title, family_id')
+          .eq('id', taskId)
+          .single();
+
+      final newUser = await _supabase
+          .from('users')
+          .select('name')
+          .eq('id', newAssignedToId)
+          .single();
+
+      await _supabase
+          .from('tasks')
+          .update({'assigned_to': newAssignedToId})
+          .eq('id', taskId);
+
+      await _supabase.from('activity_feed').insert({
+        'family_id': task['family_id'],
+        'user_id': currentUserId,
+        'type': 'transfer',
+        'content': 'Task "${task['title']}" was transferred to ${newUser['name']}',
+      });
+
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ─── REDEEM REWARD ───
+  Future<bool> redeemReward({
+    required String rewardTitle,
+    required int pointsCost,
+  }) async {
+    try {
+      final user = await _supabase
+          .from('users')
+          .select('family_id, points, name')
+          .eq('id', currentUserId!)
+          .single();
+
+      final currentPoints = (user['points'] ?? 0) as int;
+      if (currentPoints < pointsCost) return false;
+
+      await _supabase
+          .from('users')
+          .update({'points': currentPoints - pointsCost})
+          .eq('id', currentUserId!);
+
+      await _supabase.from('activity_feed').insert({
+        'family_id': user['family_id'],
+        'user_id': currentUserId,
+        'type': 'reward',
+        'content': '${user['name']} redeemed "$rewardTitle" for $pointsCost pts 🎁',
+      });
+
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ─── TIME EXTENSION ───
+  Future<bool> requestTimeExtension(String taskId, String taskTitle, String reason) async {
+    try {
+      final user = await _supabase
+          .from('users')
+          .select('family_id, name')
+          .eq('id', currentUserId!)
+          .single();
+
+      await _supabase.from('tasks').update({
+        'extension_requested': true,
+        'extension_reason': reason,
+      }).eq('id', taskId);
+
+      await _supabase.from('activity_feed').insert({
+        'family_id': user['family_id'],
+        'user_id': currentUserId,
+        'type': 'time_extension',
+        'content': '${user['name']} requested more time for "$taskTitle": $reason',
+      });
+
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getTimeExtensionRequests() async {
+    try {
+      final user = await _supabase
+          .from('users')
+          .select('family_id')
+          .eq('id', currentUserId!)
+          .single();
+
+      final tasks = await _supabase
+          .from('tasks')
+          .select('*, assigned_user:users!assigned_to(name, avatar)')
+          .eq('family_id', user['family_id'])
+          .eq('extension_requested', true)
+          .order('created_at', ascending: false);
+
+      return List<Map<String, dynamic>>.from(tasks);
+    } catch (e) {
+      return [];
+    }
+  }
+
+  Future<bool> approveTimeExtension(String taskId, DateTime currentDueDate) async {
+    try {
+      final newDueDate = currentDueDate.add(const Duration(days: 2));
+      await _supabase.from('tasks').update({
+        'due_date': newDueDate.toIso8601String(),
+        'extension_requested': false,
+        'extension_reason': null,
+      }).eq('id', taskId);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> rejectTimeExtension(String taskId) async {
+    try {
+      await _supabase.from('tasks').update({
+        'extension_requested': false,
+        'extension_reason': null,
+      }).eq('id', taskId);
       return true;
     } catch (e) {
       return false;

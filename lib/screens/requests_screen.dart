@@ -15,6 +15,8 @@ class _RequestsScreenState extends State<RequestsScreen>
   final _dataService = DataService();
 
   List<Map<String, dynamic>> _doneTasks = [];
+  List<Map<String, dynamic>> _pendingApprovalTasks = [];
+  List<Map<String, dynamic>> _timeExtensionTasks = [];
   bool _isLoading = true;
 
   @override
@@ -26,9 +28,13 @@ class _RequestsScreenState extends State<RequestsScreen>
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    final tasks = await _dataService.getPendingApprovals();
+    final done = await _dataService.getPendingApprovals();
+    final pending = await _dataService.getPendingTaskApprovals();
+    final extensions = await _dataService.getTimeExtensionRequests();
     setState(() {
-      _doneTasks = tasks;
+      _doneTasks = done;
+      _pendingApprovalTasks = pending;
+      _timeExtensionTasks = extensions;
       _isLoading = false;
     });
   }
@@ -192,11 +198,11 @@ class _RequestsScreenState extends State<RequestsScreen>
                   : TabBarView(
                       controller: _tabController,
                       children: [
-                        _emptyTab('No pending task requests'),
+                        _pendingTasksTab(),
                         _doneTab(),
                         _emptyTab('No reward requests pending'),
                         _emptyTab('No transfer requests pending'),
-                        _emptyTab('No time extension requests'),
+                        _timeExtensionTab(),
                       ],
                     ),
             ),
@@ -222,6 +228,63 @@ class _RequestsScreenState extends State<RequestsScreen>
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _pendingTasksTab() {
+    if (_pendingApprovalTasks.isEmpty) {
+      return _emptyTab('No task requests from children');
+    }
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      color: AppTheme.primary,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: _pendingApprovalTasks.length,
+        itemBuilder: (context, index) {
+          final task = _pendingApprovalTasks[index];
+          final creator = task['creator'];
+          final assigned = task['assigned_user'];
+          final creatorName = creator?['name'] ?? 'Unknown';
+          final assignedName = assigned?['name'] ?? 'Unknown';
+          final avatar = creator?['avatar'] ?? '👤';
+
+          return _requestCard(
+            emoji: avatar,
+            title: task['title'] ?? '',
+            subtitle: 'By $creatorName → $assignedName • ${task['points']} pts',
+            tag: 'New Task',
+            tagColor: AppTheme.warning,
+            approveLabel: 'Approve',
+            onApprove: () async {
+              final success = await _dataService.approveTaskCreation(task['id']);
+              if (success) {
+                _loadData();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Task approved and added ✅'),
+                      backgroundColor: AppTheme.success,
+                    ),
+                  );
+                }
+              }
+            },
+            onReject: () async {
+              await _dataService.rejectTaskCreation(task['id']);
+              _loadData();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Task request rejected'),
+                    backgroundColor: AppTheme.error,
+                  ),
+                );
+              }
+            },
+          );
+        },
       ),
     );
   }
@@ -322,6 +385,86 @@ class _RequestsScreenState extends State<RequestsScreen>
             onViewPhoto: task['photo_proof_url'] != null
                 ? () => _showPhotoDialog(task['photo_proof_url'])
                 : null,
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _timeExtensionTab() {
+    if (_timeExtensionTasks.isEmpty) {
+      return _emptyTab('No time extension requests');
+    }
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      color: AppTheme.primary,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: _timeExtensionTasks.length,
+        itemBuilder: (context, index) {
+          final task = _timeExtensionTasks[index];
+          final assigned = task['assigned_user'];
+          final avatar = assigned?['avatar'] ?? '👤';
+          final name = assigned?['name'] ?? 'Unknown';
+          final reason = task['extension_reason'] ?? 'No reason given';
+          final dueDate = task['due_date'] != null
+              ? DateTime.parse(task['due_date'])
+              : DateTime.now();
+
+          return _requestCard(
+            emoji: avatar,
+            title: task['title'] ?? '',
+            subtitle: '$name • Due: ${dueDate.day}/${dueDate.month}/${dueDate.year}',
+            tag: 'Extension',
+            tagColor: AppTheme.warning,
+            approveLabel: '+2 Days',
+            extraWidget: Container(
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: AppTheme.warning.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.access_time, size: 14, color: AppTheme.warning),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(
+                      reason,
+                      style: const TextStyle(fontSize: 11, color: AppTheme.textDark),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            onApprove: () async {
+              final success = await _dataService.approveTimeExtension(task['id'], dueDate);
+              if (success) {
+                _loadData();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Extended due date for "${task['title']}" by 2 days ✅'),
+                      backgroundColor: AppTheme.success,
+                    ),
+                  );
+                }
+              }
+            },
+            onReject: () async {
+              await _dataService.rejectTimeExtension(task['id']);
+              _loadData();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Time extension rejected'),
+                    backgroundColor: AppTheme.error,
+                  ),
+                );
+              }
+            },
           );
         },
       ),

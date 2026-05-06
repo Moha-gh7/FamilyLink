@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import '../../theme.dart'; 
+import '../theme.dart';
 import '../services/data_service.dart';
 
 class NewTaskScreen extends StatefulWidget {
@@ -22,6 +22,7 @@ class _NewTaskScreenState extends State<NewTaskScreen> {
 
  final _dataService = DataService();
 List<String> _members = ['Select family member...'];
+Map<String, String> _memberIdMap = {};
 
 @override
 void initState() {
@@ -31,12 +32,24 @@ void initState() {
 
 Future<void> _loadMembers() async {
   final members = await _dataService.getFamilyMembers();
+  final idMap = <String, String>{};
+  for (final m in members) {
+    idMap['${m['avatar']} ${m['name']}'] = m['id'] as String;
+  }
   setState(() {
-    _members = ['Select family member...', 
+    _members = ['Select family member...',
       ...members.map((m) => '${m['avatar']} ${m['name']}').toList()
     ];
+    _memberIdMap = idMap;
   });
 }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
 
   final List<String> _difficulties = ['Easy', 'Medium', 'Hard'];
   final List<String> _recurrences = ['None', 'Daily', 'Weekly'];
@@ -452,7 +465,7 @@ Future<void> _loadMembers() async {
                                  );
                                                      return;
                                                             }
-                                                           setState(() => _isLoading = true);
+                                                           if (mounted) setState(() => _isLoading = true);
                                                final dueDateTime = DateTime(
                                                  _dueDate!.year,
                                                                           _dueDate!.month,
@@ -460,18 +473,17 @@ Future<void> _loadMembers() async {
                                                                   _dueTime?.hour ?? 23,
                                                                 _dueTime?.minute ?? 59,
                                                                          );
-                                                       // Extract name from selected member (format: "avatar name")
-                                                       final memberParts = _selectedMember.split(' ');
-                                                       final memberName = memberParts.length > 1 ? memberParts.sublist(1).join(' ') : _selectedMember;
+                                                       final assignedToId = _memberIdMap[_selectedMember] ?? _selectedMember;
                                                        final success = await _dataService.createTask(
                                                          title: _titleController.text.trim(),
                                                         description: _descriptionController.text.trim(),
-                                                            assignedTo: memberName,
+                                                            assignedTo: assignedToId,
                                                               dueDate: dueDateTime,
                                                         difficulty: _difficulty,
                                                 recurrence: _recurrence,
                                                                           points: _points,
                                                       );
+                                                              if (!mounted) return;
                                                               setState(() => _isLoading = false);
                                                       if (success) {
                                                             ScaffoldMessenger.of(context).showSnackBar(

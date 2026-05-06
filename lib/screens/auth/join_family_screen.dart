@@ -1,5 +1,9 @@
 import 'package:flutter/material.dart';
 import '../../theme.dart';
+import '../../services/auth_service.dart';
+import '../home_screen.dart';
+
+
 
 class JoinFamilyScreen extends StatefulWidget {
   const JoinFamilyScreen({super.key});
@@ -9,6 +13,8 @@ class JoinFamilyScreen extends StatefulWidget {
 }
 
 class _JoinFamilyScreenState extends State<JoinFamilyScreen> {
+  final _authService = AuthService();
+bool _isLoading = false;
   final _nameController = TextEditingController();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
@@ -24,6 +30,48 @@ class _JoinFamilyScreenState extends State<JoinFamilyScreen> {
     {'emoji': '👴', 'label': 'Grandpa'},
     {'emoji': '👵', 'label': 'Grandma'},
   ];
+
+Future<void> _joinFamily() async {
+  if (_codeController.text.trim().isEmpty ||
+      _nameController.text.trim().isEmpty ||
+      _emailController.text.trim().isEmpty ||
+      _passwordController.text.trim().isEmpty) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Please fill in all fields')),
+    );
+    return;
+  }
+  setState(() => _isLoading = true);
+  final result = await _authService.joinFamily(
+    joinCode: _codeController.text.trim(),
+    name: _nameController.text.trim(),
+    email: _emailController.text.trim(),
+    password: _passwordController.text.trim(),
+    avatar: _avatars[_selectedAvatar]['emoji'],
+  );
+  if (!mounted) return;
+  setState(() => _isLoading = false);
+  if (result['success'] == true) {
+    Navigator.pushAndRemoveUntil(
+      context,
+      MaterialPageRoute(builder: (_) => const HomeScreen()),
+      (route) => false,
+    );
+  } else {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(result['message'] ?? 'Failed to join family')),
+    );
+  }
+}
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _codeController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -276,7 +324,7 @@ class _JoinFamilyScreenState extends State<JoinFamilyScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {},
+onPressed: _isLoading ? null : _joinFamily,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.secondary,
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -284,14 +332,16 @@ class _JoinFamilyScreenState extends State<JoinFamilyScreen> {
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: const Text(
-                    'Join Family',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
+                  child: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                          'Join Family',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
                 ),
               ),
 

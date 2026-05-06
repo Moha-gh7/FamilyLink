@@ -14,6 +14,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final _messageController = TextEditingController();
   final _scrollController = ScrollController();
   final _dataService = DataService();
+  RealtimeChannel? _messageChannel;
 
   List<Map<String, dynamic>> _messages = [];
   Map<String, dynamic>? _currentUser;
@@ -39,17 +40,25 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _subscribeToMessages() {
     final supabase = _dataService.supabase;
-    supabase
+    _messageChannel = supabase
         .channel('messages')
         .onPostgresChanges(
           event: PostgresChangeEvent.insert,
           schema: 'public',
           table: 'messages',
           callback: (payload) {
-            _loadData();
+            if (mounted) _loadData();
           },
         )
         .subscribe();
+  }
+
+  @override
+  void dispose() {
+    _messageChannel?.unsubscribe();
+    _scrollController.dispose();
+    _messageController.dispose();
+    super.dispose();
   }
 
   void _scrollToBottom() {
@@ -161,6 +170,7 @@ class _ChatScreenState extends State<ChatScreen> {
                         )
                       : ListView.builder(
                           controller: _scrollController,
+                          reverse: true,
                           padding: const EdgeInsets.all(16),
                           itemCount: _messages.length,
                           itemBuilder: (context, index) {

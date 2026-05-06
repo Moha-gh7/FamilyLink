@@ -145,6 +145,16 @@ class _FeedScreenState extends State<FeedScreen> {
         iconColor = AppTheme.primary;
         iconData = Icons.card_giftcard_outlined;
         break;
+      case 'transfer':
+        cardColor = const Color(0xFFE8F4FF);
+        iconColor = AppTheme.secondary;
+        iconData = Icons.swap_horiz_outlined;
+        break;
+      case 'time_extension':
+        cardColor = const Color(0xFFFFF8E8);
+        iconColor = AppTheme.warning;
+        iconData = Icons.access_time_outlined;
+        break;
       default:
         cardColor = Colors.white;
         iconColor = AppTheme.textMedium;

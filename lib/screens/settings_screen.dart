@@ -60,9 +60,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _editName(String currentName) async {
     final controller = TextEditingController(text: currentName);
-    return showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
+    final screenContext = context;
+    await showDialog(
+      context: screenContext,
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Edit Your Name'),
         content: TextField(
           controller: controller,
@@ -73,20 +74,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () async {
               final newName = controller.text.trim();
               if (newName.isNotEmpty) {
+                Navigator.pop(dialogContext);
                 final success = await _dataService.updateUserName(newName);
                 if (success && mounted) {
-                  setState(() {
-                    _currentUser?['name'] = newName;
-                  });
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  setState(() => _currentUser?['name'] = newName);
+                  ScaffoldMessenger.of(screenContext).showSnackBar(
                     const SnackBar(
                       content: Text('Name updated successfully!'),
                       backgroundColor: AppTheme.primary,
@@ -95,21 +94,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primary,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
             child: const Text('Save', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
+    controller.dispose();
   }
 
   Future<void> _editFamilyName(String currentName, String familyId) async {
     final controller = TextEditingController(text: currentName);
-    return showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
+    final screenContext = context;
+    await showDialog(
+      context: screenContext,
+      builder: (dialogContext) => AlertDialog(
         title: const Text('Edit Family Name'),
         content: TextField(
           controller: controller,
@@ -120,20 +119,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
             onPressed: () async {
               final newName = controller.text.trim();
               if (newName.isNotEmpty) {
+                Navigator.pop(dialogContext);
                 final success = await _dataService.updateFamilyName(familyId, newName);
                 if (success && mounted) {
-                  setState(() {
-                    _family?['name'] = newName;
-                  });
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  setState(() => _family?['name'] = newName);
+                  ScaffoldMessenger.of(screenContext).showSnackBar(
                     const SnackBar(
                       content: Text('Family name updated successfully!'),
                       backgroundColor: AppTheme.primary,
@@ -142,14 +139,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 }
               }
             },
-            style: ElevatedButton.styleFrom(
-              backgroundColor: AppTheme.primary,
-            ),
+            style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
             child: const Text('Save', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
+    controller.dispose();
   }
 
   Future<void> _copyJoinCode(String joinCode) async {

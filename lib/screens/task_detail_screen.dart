@@ -179,21 +179,22 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     );
   }
 
- void _showTransferDialog() async {
+ Future<void> _showTransferDialog() async {
   final members = await _dataService.getFamilyMembers();
   final otherMembers = members
       .where((m) => m['id'] != _task['assigned_to'])
       .toList();
 
-  String? selectedMember;
-  final reasonController = TextEditingController();
-
   if (!mounted) return;
 
+  String? selectedMemberId;
+  String? selectedMemberName;
+  final screenContext = context;
+
   showDialog(
-    context: context,
-    builder: (context) => StatefulBuilder(
-      builder: (context, setDialogState) => AlertDialog(
+    context: screenContext,
+    builder: (dialogContext) => StatefulBuilder(
+      builder: (dialogContext, setDialogState) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16)),
         title: const Text('Transfer to Sibling'),
@@ -213,10 +214,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 child: DropdownButton<String>(
                   isExpanded: true,
                   hint: const Text('Select family member...'),
-                  value: selectedMember,
+                  value: selectedMemberId,
                   items: otherMembers.map((m) {
                     return DropdownMenuItem<String>(
-                      value: m['name'] as String,
+                      value: m['id'] as String,
                       child: Row(
                         children: [
                           Text(m['avatar'] ?? '👤',
@@ -227,46 +228,53 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                       ),
                     );
                   }).toList(),
-                  onChanged: (val) =>
-                      setDialogState(() => selectedMember = val),
+                  onChanged: (val) {
+                    final member = otherMembers.firstWhere((m) => m['id'] == val);
+                    setDialogState(() {
+                      selectedMemberId = val;
+                      selectedMemberName = member['name'];
+                    });
+                  },
                 ),
-              ),
-            ),
-            const SizedBox(height: 12),
-            const Text('Reason for transfer:'),
-            const SizedBox(height: 8),
-            TextField(
-              controller: reasonController,
-              maxLines: 2,
-              decoration: InputDecoration(
-                hintText: 'e.g. I have an exam tomorrow...',
-                border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12)),
               ),
             ),
           ],
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: selectedMember == null
+            onPressed: selectedMemberId == null
                 ? null
-                : () {
-                    Navigator.pop(context);
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                            'Transfer request to $selectedMember sent! ✅'),
-                        backgroundColor: AppTheme.secondary,
-                      ),
-                    );
+                : () async {
+                    Navigator.pop(dialogContext);
+                    setState(() => _isLoading = true);
+                    final success = await _dataService.transferTask(
+                        _task['id'], selectedMemberId!);
+                    if (!mounted) return;
+                    setState(() => _isLoading = false);
+                    if (success) {
+                      setState(() => _task['assigned_to'] = selectedMemberId);
+                      ScaffoldMessenger.of(screenContext).showSnackBar(
+                        SnackBar(
+                          content: Text('Task transferred to $selectedMemberName ✅'),
+                          backgroundColor: AppTheme.success,
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(screenContext).showSnackBar(
+                        const SnackBar(
+                          content: Text('Transfer failed. Try again.'),
+                          backgroundColor: AppTheme.error,
+                        ),
+                      );
+                    }
                   },
             style: ElevatedButton.styleFrom(
                 backgroundColor: AppTheme.primary),
-            child: const Text('Send Request',
+            child: const Text('Transfer',
                 style: TextStyle(color: Colors.white)),
           ),
         ],
@@ -277,9 +285,10 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
 
   void _showTimeExtensionDialog() {
     final reasonController = TextEditingController();
+    final screenContext = context;
     showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
+      context: screenContext,
+      builder: (dialogContext) => AlertDialog(
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16)),
         title: const Text('Request Time Extension'),
@@ -301,16 +310,26 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('Cancel'),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Time extension request sent! ✅'),
-                  backgroundColor: AppTheme.warning,
+            onPressed: () async {
+              final reason = reasonController.text.trim();
+              if (reason.isEmpty) return;
+              Navigator.pop(dialogContext);
+              final success = await _dataService.requestTimeExtension(
+                _task['id'],
+                _task['title'] ?? '',
+                reason,
+              );
+              if (!mounted) return;
+              ScaffoldMessenger.of(screenContext).showSnackBar(
+                SnackBar(
+                  content: Text(success
+                      ? 'Time extension request sent! ✅'
+                      : 'Failed to send request. Try again.'),
+                  backgroundColor: success ? AppTheme.warning : AppTheme.error,
                 ),
               );
             },
@@ -357,6 +376,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
     final isInProgress = status == 'In Progress';
     final isPending = status == 'Pending';
     final isDone = status == 'Done' || status == 'Completed';
+    final isAssignedToMe = _task['assigned_to'] == _dataService.currentUserId;
 
     return Scaffold(
       backgroundColor: AppTheme.background,
@@ -516,7 +536,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     const SizedBox(height: 16),
 
                     // Action buttons based on status
-                    if (isPending)
+                    if (isPending && isAssignedToMe)
                       SizedBox(
                         width: double.infinity,
                         child: ElevatedButton(
@@ -543,7 +563,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         ),
                       ),
 
-                    if (isInProgress) ...[
+                    if (isInProgress && isAssignedToMe) ...[
                       // Complete task section
                       Container(
                         width: double.infinity,
