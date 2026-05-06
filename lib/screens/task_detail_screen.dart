@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:image_picker/image_picker.dart';
 import '../theme.dart';
 import '../services/data_service.dart';
 
@@ -16,11 +17,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
   final _dataService = DataService();
   late Map<String, dynamic> _task;
   bool _isLoading = false;
+  String? _photoProofUrl;
 
   @override
   void initState() {
     super.initState();
     _task = widget.task;
+    _photoProofUrl = _task['photo_proof_url'];
   }
 
   Future<void> _startTask() async {
@@ -54,6 +57,126 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
         );
       }
     }
+  }
+
+  Future<void> _pickAndUploadPhoto(ImageSource source) async {
+    final picker = ImagePicker();
+    final pickedFile = await picker.pickImage(source: source, imageQuality: 80);
+
+    if (pickedFile != null) {
+      setState(() => _isLoading = true);
+
+      final photoUrl = await _dataService.uploadPhotoProof(_task['id'], pickedFile);
+
+      if (photoUrl != null) {
+        setState(() {
+          _photoProofUrl = photoUrl;
+          _task['photo_proof_url'] = photoUrl;
+          _isLoading = false;
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Photo uploaded successfully! 📸'),
+              backgroundColor: AppTheme.success,
+            ),
+          );
+        }
+      } else {
+        setState(() => _isLoading = false);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to upload photo. Please try again.'),
+              backgroundColor: AppTheme.error,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  void _showPhotoPickerOptions() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Container(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text(
+              'Choose Photo Source',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textDark,
+              ),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                Expanded(
+                  child: _photoOptionButton(
+                    icon: Icons.camera_alt,
+                    label: 'Camera',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _pickAndUploadPhoto(ImageSource.camera);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: _photoOptionButton(
+                    icon: Icons.photo_library,
+                    label: 'Gallery',
+                    onTap: () {
+                      Navigator.pop(context);
+                      _pickAndUploadPhoto(ImageSource.gallery);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _photoOptionButton({
+    required IconData icon,
+    required String label,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        decoration: BoxDecoration(
+          color: AppTheme.primary.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: AppTheme.primary.withOpacity(0.3)),
+        ),
+        child: Column(
+          children: [
+            Icon(icon, size: 32, color: AppTheme.primary),
+            const SizedBox(height: 8),
+            Text(
+              label,
+              style: const TextStyle(
+                color: AppTheme.primary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
  void _showTransferDialog() async {
@@ -450,78 +573,90 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            // Photo upload placeholder
-                            GestureDetector(
-                              onTap: () {
-                                ScaffoldMessenger.of(context)
-                                    .showSnackBar(
-                                  const SnackBar(
-                                    content: Text(
-                                        'Photo upload coming soon! 📸'),
-                                  ),
-                                );
-                              },
-                              child: Container(
-                                width: double.infinity,
-                                height: 120,
-                                decoration: BoxDecoration(
-                                  color: AppTheme.cardBg,
-                                  borderRadius:
-                                      BorderRadius.circular(12),
-                                  border: Border.all(
-                                    color: AppTheme.primary
-                                        .withOpacity(0.3),
-                                    style: BorderStyle.solid,
-                                  ),
-                                ),
-                                child: Column(
-                                  mainAxisAlignment:
-                                      MainAxisAlignment.center,
-                                  children: [
-                                    Icon(
-                                      Icons.camera_alt_outlined,
-                                      size: 36,
-                                      color: AppTheme.primary
-                                          .withOpacity(0.5),
+                            // Photo upload section
+                            if (_photoProofUrl == null) ...[
+                              GestureDetector(
+                                onTap: _isLoading ? null : _showPhotoPickerOptions,
+                                child: Container(
+                                  width: double.infinity,
+                                  height: 120,
+                                  decoration: BoxDecoration(
+                                    color: AppTheme.cardBg,
+                                    borderRadius: BorderRadius.circular(12),
+                                    border: Border.all(
+                                      color: AppTheme.primary.withOpacity(0.3),
+                                      style: BorderStyle.solid,
                                     ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'Upload photo proof',
-                                      style: TextStyle(
-                                        color: AppTheme.primary
-                                            .withOpacity(0.7),
-                                        fontWeight: FontWeight.w500,
+                                  ),
+                                  child: Column(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(
+                                        Icons.camera_alt_outlined,
+                                        size: 36,
+                                        color: AppTheme.primary.withOpacity(0.5),
                                       ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              width: double.infinity,
-                              child: ElevatedButton(
-                                onPressed:
-                                    _isLoading ? null : _markAsDone,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: AppTheme.success,
-                                  padding: const EdgeInsets.symmetric(
-                                      vertical: 14),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius:
-                                        BorderRadius.circular(12),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        'Upload photo proof',
+                                        style: TextStyle(
+                                          color: AppTheme.primary.withOpacity(0.7),
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                child: const Text(
-                                  'Mark as Done',
+                              ),
+                            ] else ...[
+                              // Show uploaded photo
+                              Container(
+                                width: double.infinity,
+                                height: 200,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(12),
+                                  image: DecorationImage(
+                                    image: NetworkImage(_photoProofUrl!),
+                                    fit: BoxFit.cover,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Center(
+                                child: Text(
+                                  'Photo proof uploaded ✅',
                                   style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
+                                    color: AppTheme.success,
+                                    fontWeight: FontWeight.w500,
                                   ),
                                 ),
                               ),
-                            ),
+                            ],
+                            const SizedBox(height: 12),
+                            // Only show Mark as Done after photo is uploaded
+                            if (_photoProofUrl != null)
+                              SizedBox(
+                                width: double.infinity,
+                                child: ElevatedButton(
+                                  onPressed: _isLoading ? null : _markAsDone,
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: AppTheme.success,
+                                    padding: const EdgeInsets.symmetric(
+                                        vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'Mark as Done',
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
+                              ),
                           ],
                         ),
                       ),

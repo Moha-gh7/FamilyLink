@@ -33,7 +33,7 @@ Future<void> _loadMembers() async {
   final members = await _dataService.getFamilyMembers();
   setState(() {
     _members = ['Select family member...', 
-      ...members.map((m) => m['name'] as String).toList()
+      ...members.map((m) => '${m['avatar']} ${m['name']}').toList()
     ];
   });
 }
@@ -460,10 +460,13 @@ Future<void> _loadMembers() async {
                                                                   _dueTime?.hour ?? 23,
                                                                 _dueTime?.minute ?? 59,
                                                                          );
+                                                       // Extract name from selected member (format: "avatar name")
+                                                       final memberParts = _selectedMember.split(' ');
+                                                       final memberName = memberParts.length > 1 ? memberParts.sublist(1).join(' ') : _selectedMember;
                                                        final success = await _dataService.createTask(
                                                          title: _titleController.text.trim(),
                                                         description: _descriptionController.text.trim(),
-                                                            assignedTo: _selectedMember,
+                                                            assignedTo: memberName,
                                                               dueDate: dueDateTime,
                                                         difficulty: _difficulty,
                                                 recurrence: _recurrence,

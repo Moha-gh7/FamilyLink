@@ -1,4 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
 
 class DataService {
   final _supabase = Supabase.instance.client;
@@ -187,6 +189,45 @@ class DataService {
       await _supabase
           .from('tasks')
           .update({'status': status})
+          .eq('id', taskId);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<String?> uploadPhotoProof(String taskId, XFile imageFile) async {
+    try {
+      final fileName = '${taskId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final file = File(imageFile.path);
+
+      // Upload to Supabase Storage
+      await _supabase.storage
+          .from('task-proofs')
+          .upload(fileName, file);
+
+      // Get public URL
+      final publicUrl = _supabase.storage
+          .from('task-proofs')
+          .getPublicUrl(fileName);
+
+      // Update task with photo URL
+      await _supabase
+          .from('tasks')
+          .update({'photo_proof_url': publicUrl})
+          .eq('id', taskId);
+
+      return publicUrl;
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<bool> updateTaskWithPhotoProof(String taskId, String photoUrl) async {
+    try {
+      await _supabase
+          .from('tasks')
+          .update({'photo_proof_url': photoUrl})
           .eq('id', taskId);
       return true;
     } catch (e) {
