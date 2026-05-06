@@ -133,52 +133,51 @@ class _RewardsScreenState extends State<RewardsScreen> {
                 const Text('Quick Templates', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppTheme.textMedium)),
                 const SizedBox(height: 8),
                 SizedBox(
-                  height: 80,
-                  child: ListView.builder(
+                  height: 90,
+                  child: SingleChildScrollView(
                     scrollDirection: Axis.horizontal,
-                    itemCount: templates.length,
-                    itemBuilder: (_, i) {
-                      final t = templates[i];
-                      return GestureDetector(
-                        onTap: () => setDialogState(() {
-                          selectedEmoji = t['emoji'] as String;
-                          titleController.text = t['title'] as String;
-                          descController.text = t['desc'] as String;
-                          points = t['points'] as int;
-                        }),
-                        child: Container(
-                          width: 70,
-                          margin: const EdgeInsets.only(right: 8),
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            color: titleController.text == t['title']
-                                ? AppTheme.primary.withOpacity(0.12)
-                                : AppTheme.cardBg,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: titleController.text == t['title']
-                                  ? AppTheme.primary
-                                  : Colors.transparent,
-                              width: 1.5,
+                    child: Row(
+                      children: templates.map((t) {
+                        final isSelected = titleController.text == t['title'];
+                        return GestureDetector(
+                          onTap: () => setDialogState(() {
+                            selectedEmoji = t['emoji'] as String;
+                            titleController.text = t['title'] as String;
+                            descController.text = t['desc'] as String;
+                            points = t['points'] as int;
+                          }),
+                          child: Container(
+                            width: 72,
+                            margin: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              color: isSelected
+                                  ? AppTheme.primary.withOpacity(0.12)
+                                  : AppTheme.cardBg,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isSelected ? AppTheme.primary : Colors.transparent,
+                                width: 1.5,
+                              ),
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(t['emoji'] as String, style: const TextStyle(fontSize: 24)),
+                                const SizedBox(height: 4),
+                                Text(
+                                  t['title'] as String,
+                                  style: const TextStyle(fontSize: 9, color: AppTheme.textDark),
+                                  textAlign: TextAlign.center,
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ],
                             ),
                           ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(t['emoji'] as String, style: const TextStyle(fontSize: 24)),
-                              const SizedBox(height: 4),
-                              Text(
-                                t['title'] as String,
-                                style: const TextStyle(fontSize: 9, color: AppTheme.textDark),
-                                textAlign: TextAlign.center,
-                                maxLines: 2,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
+                        );
+                      }).toList(),
+                    ),
                   ),
                 ),
 
@@ -250,10 +249,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
                     IconButton(
                       onPressed: () => setDialogState(() { if (points > 10) points -= 10; }),
                       icon: const Icon(Icons.remove_circle_outline, color: AppTheme.primary),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
                     ),
-                    const SizedBox(width: 8),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                       decoration: BoxDecoration(
@@ -262,12 +258,9 @@ class _RewardsScreenState extends State<RewardsScreen> {
                       ),
                       child: Text('$points', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primary)),
                     ),
-                    const SizedBox(width: 8),
                     IconButton(
                       onPressed: () => setDialogState(() => points += 10),
                       icon: const Icon(Icons.add_circle_outline, color: AppTheme.primary),
-                      padding: EdgeInsets.zero,
-                      constraints: const BoxConstraints(),
                     ),
                   ],
                 ),
@@ -297,8 +290,9 @@ class _RewardsScreenState extends State<RewardsScreen> {
                         description: descController.text.trim(),
                         pointsCost: points,
                       );
+                      if (dialogContext.mounted) Navigator.pop(dialogContext);
+                      await Future.delayed(Duration.zero);
                       if (!mounted) return;
-                      Navigator.pop(dialogContext);
                       if (success) {
                         _loadData();
                         ScaffoldMessenger.of(screenContext).showSnackBar(

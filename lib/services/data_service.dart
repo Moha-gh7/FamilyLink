@@ -1,5 +1,4 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 
 class DataService {
@@ -197,12 +196,13 @@ class DataService {
   Future<String?> uploadPhotoProof(String taskId, XFile imageFile) async {
     try {
       final fileName = '${taskId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final file = File(imageFile.path);
+      final bytes = await imageFile.readAsBytes();
 
-      // Upload to Supabase Storage
+      // ignore: avoid_print
+      print('Uploading photo: $fileName (${bytes.length} bytes)');
       await _supabase.storage
           .from('task-proofs')
-          .upload(fileName, file);
+          .uploadBinary(fileName, bytes);
 
       // Get public URL
       final publicUrl = _supabase.storage
@@ -217,6 +217,8 @@ class DataService {
 
       return publicUrl;
     } catch (e) {
+      // ignore: avoid_print
+      print('uploadPhotoProof ERROR: $e');
       return null;
     }
   }
@@ -315,6 +317,8 @@ class DataService {
       });
       return true;
     } catch (e) {
+      // ignore: avoid_print
+      print('createReward ERROR: $e');
       return false;
     }
   }
