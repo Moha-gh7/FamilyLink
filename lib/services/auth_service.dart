@@ -103,7 +103,7 @@ class AuthService {
         'role': 'Child',
         'avatar': avatar,
         'points': 0,
-      });
+      }); 
 
       return {'success': true, 'message': 'Joined family successfully!'};
     } catch (e) {
