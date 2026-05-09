@@ -16,40 +16,6 @@ class _RewardsScreenState extends State<RewardsScreen> {
   Map<String, dynamic>? _currentUser;
   bool _isLoading = true;
 
-  // Default rewards to add if none exist
-  final List<Map<String, dynamic>> _defaultRewards = [
-    {
-      'emoji': '🍦',
-      'title': 'Ice Cream Trip',
-      'description': 'Family outing to favorite ice cream parlor',
-      'points_cost': 150,
-    },
-    {
-      'emoji': '🎬',
-      'title': 'Movie Night',
-      'description': 'Choose any movie + popcorn',
-      'points_cost': 200,
-    },
-    {
-      'emoji': '🎮',
-      'title': 'Extra Screen Time',
-      'description': '1 hour extra phone/game time',
-      'points_cost': 100,
-    },
-    {
-      'emoji': '🍕',
-      'title': 'Pizza Night',
-      'description': 'Pick your favorite pizza toppings',
-      'points_cost': 175,
-    },
-    {
-      'emoji': '🎁',
-      'title': 'Mystery Gift',
-      'description': 'A surprise gift from parents',
-      'points_cost': 500,
-    },
-  ];
-
   @override
   void initState() {
     super.initState();
@@ -59,16 +25,9 @@ class _RewardsScreenState extends State<RewardsScreen> {
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
     final members = await _dataService.getFamilyMembers();
-    var rewards = await _dataService.getRewards();
+    final rewards = await _dataService.getRewards();
     final user = await _dataService.getCurrentUser();
 
-    // If no rewards exist, add default ones
-    if (rewards.isEmpty && user != null) {
-      await _addDefaultRewards(user['family_id']);
-      rewards = await _dataService.getRewards();
-    }
-
-    // Sort members by points
     members.sort((a, b) =>
         ((b['points'] ?? 0) as int).compareTo((a['points'] ?? 0) as int));
 
@@ -78,18 +37,6 @@ class _RewardsScreenState extends State<RewardsScreen> {
       _currentUser = user;
       _isLoading = false;
     });
-  }
-
-  Future<void> _addDefaultRewards(String familyId) async {
-    for (final reward in _defaultRewards) {
-      await _dataService.supabase.from('rewards').insert({
-        'family_id': familyId,
-        'title': reward['title'],
-        'description': reward['description'],
-        'emoji': reward['emoji'],
-        'points_cost': reward['points_cost'],
-      });
-    }
   }
 
   Future<void> _showAddRewardDialog() async {
@@ -339,13 +286,6 @@ class _RewardsScreenState extends State<RewardsScreen> {
 
     return Scaffold(
       backgroundColor: AppTheme.background,
-      floatingActionButton: isParent
-          ? FloatingActionButton(
-              backgroundColor: Theme.of(context).colorScheme.primary,
-              onPressed: _showAddRewardDialog,
-              child: const Icon(Icons.add, color: Colors.white),
-            )
-          : null,
       body: SafeArea(
         child: SingleChildScrollView(
           child: Column(
@@ -477,19 +417,106 @@ class _RewardsScreenState extends State<RewardsScreen> {
 
                     const SizedBox(height: 24),
 
-                    // Available rewards
-                    const Text(
-                      'Available Rewards',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.textDark,
-                      ),
+                    // Available rewards header
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        const Text(
+                          'Available Rewards',
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.textDark,
+                          ),
+                        ),
+                        if (isParent)
+                          GestureDetector(
+                            onTap: _showAddRewardDialog,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 14, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: Theme.of(context).colorScheme.primary,
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: const Row(
+                                children: [
+                                  Icon(Icons.add, color: Colors.white, size: 16),
+                                  SizedBox(width: 4),
+                                  Text(
+                                    'Add Reward',
+                                    style: TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                     const SizedBox(height: 12),
-                    ..._rewards
-                        .map((r) => _rewardCard(r, userPoints, context))
-                        .toList(),
+                    if (_rewards.isEmpty)
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 40, horizontal: 24),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          border: Border.all(
+                            color: Theme.of(context).colorScheme.primary.withOpacity(0.15),
+                            width: 1.5,
+                          ),
+                        ),
+                        child: Column(
+                          children: [
+                            Text('🎁',
+                                style: const TextStyle(fontSize: 48)),
+                            const SizedBox(height: 12),
+                            const Text(
+                              'No rewards yet',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                color: AppTheme.textDark,
+                              ),
+                            ),
+                            const SizedBox(height: 6),
+                            Text(
+                              isParent
+                                  ? 'Tap "Add Reward" to create something\nyour family can work towards.'
+                                  : 'Your parents haven\'t added any rewards yet.\nCheck back soon!',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                  fontSize: 13, color: AppTheme.textMedium),
+                            ),
+                            if (isParent) ...[
+                              const SizedBox(height: 20),
+                              ElevatedButton.icon(
+                                onPressed: _showAddRewardDialog,
+                                icon: const Icon(Icons.add, size: 18),
+                                label: const Text('Add your first reward'),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor:
+                                      Theme.of(context).colorScheme.primary,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 24, vertical: 12),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ],
+                        ),
+                      )
+                    else
+                      ..._rewards
+                          .map((r) => _rewardCard(r, userPoints, context))
+                          .toList(),
                   ],
                 ),
               ),
