@@ -70,6 +70,59 @@ class _HomeScreenState extends State<HomeScreen> {
   int get completedTasks =>
       _todaysTasks.where((t) => t['status'] == 'Completed').length;
 
+  bool get _canApprove =>
+      _currentUser?['role'] == 'Parent' ||
+      _currentUser?['can_approve'] == true;
+
+  bool get _isChild => _currentUser?['role'] != 'Parent';
+
+  int get _overdueCount {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    return _todaysTasks.where((t) {
+      if (t['status'] == 'Completed' || t['status'] == 'Done') return false;
+      if (t['assigned_to'] != _dataService.currentUserId) return false;
+      if (t['due_date'] == null) return false;
+      final due = DateTime.parse(t['due_date']);
+      final dueDay = DateTime(due.year, due.month, due.day);
+      return dueDay.isBefore(today);
+    }).length;
+  }
+
+  Color _taskUrgencyColor(Map<String, dynamic> task) {
+    if (task['status'] == 'Completed' || task['status'] == 'Done') {
+      return AppTheme.success;
+    }
+    if (task['due_date'] == null) return AppTheme.textLight;
+    final due = DateTime.parse(task['due_date']);
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dueDay = DateTime(due.year, due.month, due.day);
+    if (dueDay.isBefore(today)) return AppTheme.error;
+    if (dueDay == today) return AppTheme.warning;
+    return AppTheme.success;
+  }
+
+  String _taskEmoji(String title) {
+    final t = title.toLowerCase();
+    if (t.contains('clean')) return '🧹';
+    if (t.contains('dish') || t.contains('wash')) return '🫧';
+    if (t.contains('trash') || t.contains('recycl')) return '🗑️';
+    if (t.contains('laundry') || t.contains('cloth') || t.contains('fold')) return '👕';
+    if (t.contains('vacuum')) return '🌀';
+    if (t.contains('plant') || t.contains('water')) return '🌿';
+    if (t.contains('dog')) return '🐕';
+    if (t.contains('cat')) return '🐈';
+    if (t.contains('homework') || t.contains('study')) return '📚';
+    if (t.contains('cook') || t.contains('dinner') || t.contains('food') || t.contains('iftar') || t.contains('prepare')) return '🥘';
+    if (t.contains('bed') || t.contains('room')) return '🛏️';
+    if (t.contains('grocery') || t.contains('buy')) return '🛒';
+    if (t.contains('table') || t.contains('set')) return '🍴';
+    if (t.contains('mop') || t.contains('floor')) return '🧽';
+    if (t.contains('feed')) return '🥣';
+    return '📋';
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -77,13 +130,14 @@ class _HomeScreenState extends State<HomeScreen> {
       body: SafeArea(
         child: RefreshIndicator(
           onRefresh: _loadData,
-          color: AppTheme.primary,
+          color: Theme.of(context).colorScheme.primary,
           child: SingleChildScrollView(
             physics: const AlwaysScrollableScrollPhysics(),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _isLoading ? SkeletonProfileHeader() : _buildHeader(),
+                if (!_isLoading && _overdueCount > 0) _buildOverdueBanner(),
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: _isLoading
@@ -113,10 +167,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   padding: const EdgeInsets.all(16),
                   child: _isLoading
                       ? Column(
-                          children: List.generate(
-                            3,
-                            (index) => SkeletonTaskCard(),
-                          ),
+                          children: List.generate(3, (index) => SkeletonTaskCard()),
                         )
                       : _buildTodaysTasks(),
                 ),
@@ -128,13 +179,38 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget _buildOverdueBanner() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppTheme.error,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: Colors.white, size: 22),
+          const SizedBox(width: 10),
+          Text(
+            '⚠️ You have $_overdueCount overdue task${_overdueCount > 1 ? 's' : ''}!',
+            style: const TextStyle(
+              color: Colors.white,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildHeader() {
     final familyName = _family?['name'] ?? 'Your Family';
     return Container(
       width: double.infinity,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [AppTheme.primary, AppTheme.secondary],
+          colors: [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.secondary],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -240,8 +316,6 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Widget _buildActionButtons() {
-    final isParent = _currentUser?['role'] == 'Parent';
-
     return Column(
       children: [
         Row(
@@ -250,7 +324,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: _actionButton(
                 icon: Icons.add_circle_outline,
                 label: 'New Task',
-                color: AppTheme.primary,
+                color: Theme.of(context).colorScheme.primary,
                 onTap: () async {
                   await Navigator.push(
                     context,
@@ -266,7 +340,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: _actionButton(
                 icon: Icons.card_giftcard_outlined,
                 label: 'Rewards',
-                color: AppTheme.primary,
+                color: Theme.of(context).colorScheme.primary,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -283,7 +357,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: _actionButton(
                 icon: Icons.timeline_outlined,
                 label: 'Feed',
-                color: AppTheme.secondary,
+                color: Theme.of(context).colorScheme.secondary,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -296,7 +370,7 @@ class _HomeScreenState extends State<HomeScreen> {
               child: _actionButton(
                 icon: Icons.chat_bubble_outline,
                 label: 'Chat',
-                color: AppTheme.secondary,
+                color: Theme.of(context).colorScheme.secondary,
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -306,7 +380,7 @@ class _HomeScreenState extends State<HomeScreen> {
             ),
           ],
         ),
-        if (isParent) ...[
+        if (_canApprove) ...[
           const SizedBox(height: 12),
           _actionButton(
             icon: Icons.notifications_outlined,
@@ -396,6 +470,264 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _showMemberTasks(Map<String, dynamic> member) {
+    final memberTasks = _todaysTasks
+        .where((t) => t['assigned_to'] == member['id'])
+        .toList();
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.75,
+        ),
+        decoration: const BoxDecoration(
+          color: AppTheme.background,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Handle bar
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            // Member header
+            Container(
+              margin: const EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.secondary],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 52,
+                    height: 52,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+
+                      borderRadius: BorderRadius.circular(26),
+                    ),
+                    child: Center(
+                      child: Text(member['avatar'] ?? '👤',
+                          style: const TextStyle(fontSize: 28)),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          member['name'] ?? '',
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
+                        ),
+                        Text(
+                          member['role'] ?? '',
+                          style: const TextStyle(
+                              fontSize: 13, color: Colors.white70),
+                        ),
+                      ],
+                    ),
+                  ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      const Icon(Icons.emoji_events,
+                          color: Colors.white, size: 20),
+                      Text(
+                        '${member['points'] ?? 0} pts',
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            // Tasks label
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  const Text(
+                    'Assigned Tasks',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textDark,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    '${memberTasks.length} task${memberTasks.length != 1 ? 's' : ''}',
+                    style: const TextStyle(
+                        fontSize: 13, color: AppTheme.textMedium),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            // Tasks list
+            Flexible(
+              child: memberTasks.isEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.all(32),
+                      child: Column(
+                        children: [
+                          Text('🎉', style: TextStyle(fontSize: 40)),
+                          SizedBox(height: 8),
+                          Text('No tasks assigned',
+                              style: TextStyle(
+                                  color: AppTheme.textMedium,
+                                  fontWeight: FontWeight.w500)),
+                        ],
+                      ),
+                    )
+                  : ListView.builder(
+                      shrinkWrap: true,
+                      padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                      itemCount: memberTasks.length,
+                      itemBuilder: (context, index) {
+                        final task = memberTasks[index];
+                        final urgencyColor = _taskUrgencyColor(task);
+                        final status = task['status'] ?? 'Pending';
+
+                        Color statusColor;
+                        switch (status) {
+                          case 'Completed':
+                            statusColor = AppTheme.success;
+                            break;
+                          case 'In Progress':
+                            statusColor = AppTheme.warning;
+                            break;
+                          case 'Done':
+                            statusColor = Theme.of(context).colorScheme.secondary;
+                            break;
+                          default:
+                            statusColor = AppTheme.textLight;
+                        }
+
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border(
+                              left: BorderSide(
+                                  color: urgencyColor, width: 4),
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color:
+                                    Theme.of(context).colorScheme.primary.withOpacity(0.05),
+                                blurRadius: 6,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 40,
+                                decoration: BoxDecoration(
+                                  color:
+                                      urgencyColor.withOpacity(0.1),
+                                  borderRadius:
+                                      BorderRadius.circular(10),
+                                ),
+                                child: Center(
+                                  child: Text(
+                                    _taskEmoji(task['title'] ?? ''),
+                                    style: const TextStyle(
+                                        fontSize: 22),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      task['title'] ?? '',
+                                      style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppTheme.textDark,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      children: [
+                                        Icon(Icons.emoji_events,
+                                            size: 12,
+                                            color: AppTheme.warning),
+                                        const SizedBox(width: 3),
+                                        Text('${task['points']} pts',
+                                            style: const TextStyle(
+                                                fontSize: 11,
+                                                color:
+                                                    AppTheme.textMedium)),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color:
+                                      statusColor.withOpacity(0.12),
+                                  borderRadius:
+                                      BorderRadius.circular(20),
+                                ),
+                                child: Text(
+                                  status,
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    fontWeight: FontWeight.w600,
+                                    color: statusColor,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _memberCard(Map<String, dynamic> member) {
     final todayDone = _todaysTasks
         .where((t) =>
@@ -405,14 +737,16 @@ class _HomeScreenState extends State<HomeScreen> {
         .where((t) => t['assigned_to'] == member['id'])
         .length;
 
-    return Container(
+    return GestureDetector(
+      onTap: () => _showMemberTasks(member),
+      child: Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: AppTheme.surface,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primary.withOpacity(0.08),
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -467,10 +801,10 @@ class _HomeScreenState extends State<HomeScreen> {
                       fontSize: 11, color: AppTheme.textMedium)),
               Text(
                 '${member['points'] ?? 0}',
-                style: const TextStyle(
+                style: TextStyle(
                   fontSize: 13,
                   fontWeight: FontWeight.bold,
-                  color: AppTheme.primary,
+                  color: Theme.of(context).colorScheme.primary,
                 ),
               ),
             ],
@@ -482,7 +816,7 @@ class _HomeScreenState extends State<HomeScreen> {
               value: todayTotal == 0 ? 0 : todayDone / todayTotal,
               backgroundColor: AppTheme.cardBg,
               valueColor:
-                  const AlwaysStoppedAnimation<Color>(AppTheme.primary),
+                  AlwaysStoppedAnimation<Color>(Theme.of(context).colorScheme.primary),
               minHeight: 4,
             ),
           ),
@@ -494,15 +828,20 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+    ),
     );
   }
 
   Widget _buildTodaysTasks() {
+    final myTasks = _todaysTasks
+        .where((t) => t['assigned_to'] == _dataService.currentUserId)
+        .toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          "Today's Tasks",
+          'My Tasks',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.bold,
@@ -510,7 +849,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        if (_todaysTasks.isEmpty)
+        if (myTasks.isEmpty)
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
@@ -518,19 +857,162 @@ class _HomeScreenState extends State<HomeScreen> {
               borderRadius: BorderRadius.circular(14),
             ),
             child: const Center(
-              child: Text(
-                'No tasks for today! 🎉',
-                style: TextStyle(color: AppTheme.textMedium),
+              child: Column(
+                children: [
+                  Text('🎉', style: TextStyle(fontSize: 40)),
+                  SizedBox(height: 8),
+                  Text('No tasks assigned to you today!',
+                      style: TextStyle(
+                          color: AppTheme.textMedium,
+                          fontWeight: FontWeight.w600)),
+                ],
               ),
             ),
           )
         else
-          ..._todaysTasks.map((task) => _taskCard(task)).toList(),
+          ...myTasks.map((task) => _childTaskCard(task)).toList(),
       ],
     );
   }
 
- Widget _taskCard(Map<String, dynamic> task) {
+  Widget _childTaskCard(Map<String, dynamic> task) {
+    final urgencyColor = _taskUrgencyColor(task);
+    final status = task['status'] ?? 'Pending';
+    final isPending = status == 'Pending';
+    final isInProgress = status == 'In Progress';
+    final isDone = status == 'Completed' || status == 'Done';
+
+    String dueDateText = '';
+    if (task['due_date'] != null) {
+      final due = DateTime.parse(task['due_date']);
+      final now = DateTime.now();
+      final today = DateTime(now.year, now.month, now.day);
+      final dueDay = DateTime(due.year, due.month, due.day);
+      if (dueDay.isBefore(today)) {
+        dueDateText = 'Overdue!';
+      } else if (dueDay == today) {
+        dueDateText = 'Due today';
+      } else {
+        dueDateText = 'Due ${due.day}/${due.month}';
+      }
+    }
+
+    return GestureDetector(
+      onTap: () => Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => TaskDetailScreen(task: task)),
+      ),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: AppTheme.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border(
+            left: BorderSide(color: urgencyColor, width: 4),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.06),
+              blurRadius: 6,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: urgencyColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Center(
+                child: Text(
+                  _taskEmoji(task['title'] ?? ''),
+                  style: const TextStyle(fontSize: 26),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    task['title'] ?? '',
+                    style: const TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.textDark,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Row(
+                    children: [
+                      Icon(Icons.access_time, size: 12, color: urgencyColor),
+                      const SizedBox(width: 4),
+                      Text(
+                        dueDateText,
+                        style: TextStyle(
+                          fontSize: 12,
+                          color: urgencyColor,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      const Icon(Icons.emoji_events,
+                          size: 12, color: AppTheme.warning),
+                      const SizedBox(width: 4),
+                      Text(
+                        '${task['points']} pts',
+                        style: const TextStyle(
+                            fontSize: 12, color: AppTheme.textMedium),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            if (isDone)
+              const Icon(Icons.check_circle,
+                  color: AppTheme.success, size: 28)
+            else if (isPending || isInProgress)
+              ElevatedButton(
+                onPressed: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => TaskDetailScreen(task: task)),
+                ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: urgencyColor,
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 14, vertical: 10),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  elevation: 0,
+                ),
+                child: Text(
+                  isPending ? 'Start' : 'Go!',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 13,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _taskCard(Map<String, dynamic> task) {
+    final urgencyColor = _taskUrgencyColor(task);
+
     Color statusColor;
     switch (task['status']) {
       case 'Completed':
@@ -572,9 +1054,12 @@ class _HomeScreenState extends State<HomeScreen> {
         decoration: BoxDecoration(
           color: AppTheme.surface,
           borderRadius: BorderRadius.circular(14),
+          border: Border(
+            left: BorderSide(color: urgencyColor, width: 4),
+          ),
           boxShadow: [
             BoxShadow(
-              color: AppTheme.primary.withOpacity(0.06),
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.06),
               blurRadius: 6,
               offset: const Offset(0, 2),
             ),
@@ -582,16 +1067,40 @@ class _HomeScreenState extends State<HomeScreen> {
         ),
         child: Row(
           children: [
-            Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: AppTheme.cardBg,
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Center(
-                child: Text(avatar, style: const TextStyle(fontSize: 22)),
-              ),
+            Stack(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: urgencyColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Center(
+                    child: Text(
+                      _taskEmoji(task['title'] ?? ''),
+                      style: const TextStyle(fontSize: 24),
+                    ),
+                  ),
+                ),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: Container(
+                    width: 20,
+                    height: 20,
+                    decoration: BoxDecoration(
+                      color: AppTheme.cardBg,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                    child: Center(
+                      child: Text(avatar,
+                          style: const TextStyle(fontSize: 11)),
+                    ),
+                  ),
+                ),
+              ],
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -617,7 +1126,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   const SizedBox(height: 6),
                   Row(
                     children: [
-                      _chip('${task['points']} pts', AppTheme.primary),
+                      _chip('${task['points']} pts', Theme.of(context).colorScheme.primary),
                       const SizedBox(width: 6),
                       _chip(task['difficulty'] ?? '', difficultyColor),
                       const SizedBox(width: 6),

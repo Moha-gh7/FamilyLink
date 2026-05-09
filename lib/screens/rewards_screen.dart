@@ -152,11 +152,11 @@ class _RewardsScreenState extends State<RewardsScreen> {
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
                               color: isSelected
-                                  ? AppTheme.primary.withOpacity(0.12)
+                                  ? Theme.of(screenContext).colorScheme.primary.withOpacity(0.12)
                                   : AppTheme.cardBg,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: isSelected ? AppTheme.primary : Colors.transparent,
+                                color: isSelected ? Theme.of(screenContext).colorScheme.primary : Colors.transparent,
                                 width: 1.5,
                               ),
                             ),
@@ -197,10 +197,10 @@ class _RewardsScreenState extends State<RewardsScreen> {
                         width: 40,
                         height: 40,
                         decoration: BoxDecoration(
-                          color: isSelected ? AppTheme.primary.withOpacity(0.15) : AppTheme.cardBg,
+                          color: isSelected ? Theme.of(screenContext).colorScheme.primary.withOpacity(0.15) : AppTheme.cardBg,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: isSelected ? AppTheme.primary : Colors.transparent,
+                            color: isSelected ? Theme.of(screenContext).colorScheme.primary : Colors.transparent,
                             width: 2,
                           ),
                         ),
@@ -220,7 +220,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: AppTheme.primary, width: 2),
+                      borderSide: BorderSide(color: Theme.of(screenContext).colorScheme.primary, width: 2),
                     ),
                   ),
                 ),
@@ -235,7 +235,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
                     border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(10),
-                      borderSide: const BorderSide(color: AppTheme.primary, width: 2),
+                      borderSide: BorderSide(color: Theme.of(screenContext).colorScheme.primary, width: 2),
                     ),
                   ),
                 ),
@@ -248,19 +248,19 @@ class _RewardsScreenState extends State<RewardsScreen> {
                     const Spacer(),
                     IconButton(
                       onPressed: () => setDialogState(() { if (points > 10) points -= 10; }),
-                      icon: const Icon(Icons.remove_circle_outline, color: AppTheme.primary),
+                      icon: Icon(Icons.remove_circle_outline, color: Theme.of(screenContext).colorScheme.primary),
                     ),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
                       decoration: BoxDecoration(
-                        color: AppTheme.primary.withOpacity(0.1),
+                        color: Theme.of(screenContext).colorScheme.primary.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: Text('$points', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: AppTheme.primary)),
+                      child: Text('$points', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Theme.of(screenContext).colorScheme.primary)),
                     ),
                     IconButton(
                       onPressed: () => setDialogState(() => points += 10),
-                      icon: const Icon(Icons.add_circle_outline, color: AppTheme.primary),
+                      icon: Icon(Icons.add_circle_outline, color: Theme.of(screenContext).colorScheme.primary),
                     ),
                   ],
                 ),
@@ -273,7 +273,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
               child: const Text('Cancel'),
             ),
             ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
+              style: ElevatedButton.styleFrom(backgroundColor: Theme.of(screenContext).colorScheme.primary),
               onPressed: isSaving
                   ? null
                   : () async {
@@ -325,10 +325,10 @@ class _RewardsScreenState extends State<RewardsScreen> {
   @override
   Widget build(BuildContext context) {
     if (_isLoading) {
-      return const Scaffold(
+      return Scaffold(
         backgroundColor: AppTheme.background,
         body: Center(
-          child: CircularProgressIndicator(color: AppTheme.primary),
+          child: CircularProgressIndicator(color: Theme.of(context).colorScheme.primary),
         ),
       );
     }
@@ -341,7 +341,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
       backgroundColor: AppTheme.background,
       floatingActionButton: isParent
           ? FloatingActionButton(
-              backgroundColor: AppTheme.primary,
+              backgroundColor: Theme.of(context).colorScheme.primary,
               onPressed: _showAddRewardDialog,
               child: const Icon(Icons.add, color: Colors.white),
             )
@@ -449,7 +449,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
                           BoxShadow(
-                            color: AppTheme.primary.withOpacity(0.08),
+                            color: Theme.of(context).colorScheme.primary.withOpacity(0.08),
                             blurRadius: 8,
                             offset: const Offset(0, 2),
                           ),
@@ -512,7 +512,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
         break;
       case 2:
         rankEmoji = '🥈';
-        pointsColor = AppTheme.primary;
+        pointsColor = Theme.of(context).colorScheme.primary;
         break;
       case 3:
         rankEmoji = '🥉';
@@ -586,7 +586,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primary.withOpacity(0.06),
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.06),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -658,7 +658,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
                     value: progress,
                     backgroundColor: AppTheme.cardBg,
                     valueColor: AlwaysStoppedAnimation<Color>(
-                      canAfford ? AppTheme.success : AppTheme.primary,
+                      canAfford ? AppTheme.success : Theme.of(context).colorScheme.primary,
                     ),
                     minHeight: 6,
                   ),
@@ -690,6 +690,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
                         onPressed: () async {
                           Navigator.pop(dialogContext);
                           final success = await _dataService.redeemReward(
+                            rewardId: reward['id'] ?? '',
                             rewardTitle: reward['title'] ?? '',
                             pointsCost: pointsCost,
                           );
@@ -712,7 +713,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
                           }
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primary,
+                          backgroundColor: Theme.of(context).colorScheme.primary,
                         ),
                         child: const Text('Redeem',
                             style: TextStyle(color: Colors.white)),
@@ -725,7 +726,7 @@ class _RewardsScreenState extends State<RewardsScreen> {
                 padding: const EdgeInsets.symmetric(
                     horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
-                  color: AppTheme.primary,
+                  color: Theme.of(context).colorScheme.primary,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 child: const Text(

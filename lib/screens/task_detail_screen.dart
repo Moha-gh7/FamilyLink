@@ -158,18 +158,18 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 20),
         decoration: BoxDecoration(
-          color: AppTheme.primary.withOpacity(0.1),
+          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: AppTheme.primary.withOpacity(0.3)),
+          border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
         ),
         child: Column(
           children: [
-            Icon(icon, size: 32, color: AppTheme.primary),
+            Icon(icon, size: 32, color: Theme.of(context).colorScheme.primary),
             const SizedBox(height: 8),
             Text(
               label,
-              style: const TextStyle(
-                color: AppTheme.primary,
+              style: TextStyle(
+                color: Theme.of(context).colorScheme.primary,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -273,7 +273,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                     }
                   },
             style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primary),
+                backgroundColor: Theme.of(context).colorScheme.primary),
             child: const Text('Transfer',
                 style: TextStyle(color: Colors.white)),
           ),
@@ -334,7 +334,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
               );
             },
             style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.primary),
+                backgroundColor: Theme.of(context).colorScheme.primary),
             child: const Text('Send Request',
                 style: TextStyle(color: Colors.white)),
           ),
@@ -350,7 +350,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
       case 'In Progress':
         return AppTheme.warning;
       case 'Done':
-        return AppTheme.secondary;
+        return Theme.of(context).colorScheme.secondary;
       default:
         return AppTheme.textLight;
     }
@@ -390,8 +390,8 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
                     colors: [
-                      AppTheme.primary,
-                      AppTheme.secondary,
+                      Theme.of(context).colorScheme.primary,
+                      Theme.of(context).colorScheme.secondary,
                     ],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
@@ -482,7 +482,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         boxShadow: [
                           BoxShadow(
                             color:
-                                AppTheme.primary.withOpacity(0.06),
+                                Theme.of(context).colorScheme.primary.withOpacity(0.06),
                             blurRadius: 6,
                             offset: const Offset(0, 2),
                           ),
@@ -542,7 +542,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         child: ElevatedButton(
                           onPressed: _isLoading ? null : _startTask,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: AppTheme.primary,
+                            backgroundColor: Theme.of(context).colorScheme.primary,
                             padding: const EdgeInsets.symmetric(
                                 vertical: 16),
                             shape: RoundedRectangleBorder(
@@ -573,7 +573,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                           borderRadius: BorderRadius.circular(16),
                           boxShadow: [
                             BoxShadow(
-                              color: AppTheme.primary
+                              color: Theme.of(context).colorScheme.primary
                                   .withOpacity(0.06),
                               blurRadius: 6,
                               offset: const Offset(0, 2),
@@ -604,7 +604,7 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                     color: AppTheme.cardBg,
                                     borderRadius: BorderRadius.circular(12),
                                     border: Border.all(
-                                      color: AppTheme.primary.withOpacity(0.3),
+                                      color: Theme.of(context).colorScheme.primary.withOpacity(0.3),
                                       style: BorderStyle.solid,
                                     ),
                                   ),
@@ -614,13 +614,13 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                       Icon(
                                         Icons.camera_alt_outlined,
                                         size: 36,
-                                        color: AppTheme.primary.withOpacity(0.5),
+                                        color: Theme.of(context).colorScheme.primary.withOpacity(0.5),
                                       ),
                                       const SizedBox(height: 8),
                                       Text(
                                         'Upload photo proof',
                                         style: TextStyle(
-                                          color: AppTheme.primary.withOpacity(0.7),
+                                          color: Theme.of(context).colorScheme.primary.withOpacity(0.7),
                                           fontWeight: FontWeight.w500,
                                         ),
                                       ),
@@ -688,18 +688,18 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                         width: double.infinity,
                         child: OutlinedButton.icon(
                           onPressed: _showTransferDialog,
-                          icon: const Icon(Icons.send_outlined,
-                              color: AppTheme.primary),
-                          label: const Text(
+                          icon: Icon(Icons.send_outlined,
+                              color: Theme.of(context).colorScheme.primary),
+                          label: Text(
                             'Transfer to Sibling',
                             style:
-                                TextStyle(color: AppTheme.primary),
+                                TextStyle(color: Theme.of(context).colorScheme.primary),
                           ),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(
                                 vertical: 14),
-                            side: const BorderSide(
-                                color: AppTheme.primary),
+                            side: BorderSide(
+                                color: Theme.of(context).colorScheme.primary),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(12),
                             ),

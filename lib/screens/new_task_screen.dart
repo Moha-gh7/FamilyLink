@@ -84,8 +84,8 @@ Future<void> _loadMembers() async {
       builder: (context, child) {
         return Theme(
           data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppTheme.primary,
+            colorScheme: ColorScheme.light(
+              primary: Theme.of(context).colorScheme.primary,
             ),
           ),
           child: child!,
@@ -124,9 +124,9 @@ Future<void> _loadMembers() async {
               // Header
               Container(
                 width: double.infinity,
-                decoration: const BoxDecoration(
+                decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: [AppTheme.primary, AppTheme.secondary],
+                    colors: [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.secondary],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -195,7 +195,7 @@ Future<void> _loadMembers() async {
                               borderRadius: BorderRadius.circular(20),
                               border: Border.all(
                                 color: _titleController.text == template
-                                    ? AppTheme.primary
+                                    ? Theme.of(context).colorScheme.primary
                                     : Colors.transparent,
                               ),
                             ),
@@ -204,7 +204,7 @@ Future<void> _loadMembers() async {
                               style: TextStyle(
                                 fontSize: 12,
                                 color: _titleController.text == template
-                                    ? AppTheme.primary
+                                    ? Theme.of(context).colorScheme.primary
                                     : AppTheme.textMedium,
                                 fontWeight: _titleController.text == template
                                     ? FontWeight.bold
@@ -224,7 +224,7 @@ Future<void> _loadMembers() async {
                     TextField(
                       controller: _titleController,
                       decoration: _inputDecoration(
-                          'e.g. Clean your bedroom'),
+                          'e.g. Clean your bedroom', context),
                     ),
 
                     const SizedBox(height: 16),
@@ -236,7 +236,7 @@ Future<void> _loadMembers() async {
                       controller: _descriptionController,
                       maxLines: 3,
                       decoration: _inputDecoration(
-                          'Add details about what needs to be done...'),
+                          'Add details about what needs to be done...', context),
                     ),
 
                     const SizedBox(height: 16),
@@ -281,8 +281,8 @@ Future<void> _loadMembers() async {
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.calendar_today,
-                                color: AppTheme.primary, size: 18),
+                            Icon(Icons.calendar_today,
+                                color: Theme.of(context).colorScheme.primary, size: 18),
                             const SizedBox(width: 8),
                             Text(
                               _formattedDateTime,
@@ -373,12 +373,12 @@ Future<void> _loadMembers() async {
                                   vertical: 10),
                               decoration: BoxDecoration(
                                 color: isSelected
-                                    ? AppTheme.primary.withOpacity(0.12)
+                                    ? Theme.of(context).colorScheme.primary.withOpacity(0.12)
                                     : AppTheme.cardBg,
                                 borderRadius: BorderRadius.circular(10),
                                 border: Border.all(
                                   color: isSelected
-                                      ? AppTheme.primary
+                                      ? Theme.of(context).colorScheme.primary
                                       : Colors.transparent,
                                   width: 2,
                                 ),
@@ -388,7 +388,7 @@ Future<void> _loadMembers() async {
                                 textAlign: TextAlign.center,
                                 style: TextStyle(
                                   color: isSelected
-                                      ? AppTheme.primary
+                                      ? Theme.of(context).colorScheme.primary
                                       : AppTheme.textMedium,
                                   fontWeight: isSelected
                                       ? FontWeight.bold
@@ -415,8 +415,8 @@ Future<void> _loadMembers() async {
                               setState(() => _points -= 5);
                             }
                           },
-                          icon: const Icon(Icons.remove_circle_outline,
-                              color: AppTheme.primary),
+                          icon: Icon(Icons.remove_circle_outline,
+                              color: Theme.of(context).colorScheme.primary),
                         ),
                         Container(
                           padding: const EdgeInsets.symmetric(
@@ -444,8 +444,8 @@ Future<void> _loadMembers() async {
                         IconButton(
                           onPressed: () =>
                               setState(() => _points += 5),
-                          icon: const Icon(Icons.add_circle_outline,
-                              color: AppTheme.primary),
+                          icon: Icon(Icons.add_circle_outline,
+                              color: Theme.of(context).colorScheme.primary),
                         ),
                       ],
                     ),
@@ -502,7 +502,7 @@ Future<void> _loadMembers() async {
   }
 },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: AppTheme.primary,
+                          backgroundColor: Theme.of(context).colorScheme.primary,
                           padding:
                               const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
@@ -545,7 +545,7 @@ Future<void> _loadMembers() async {
     );
   }
 
-  InputDecoration _inputDecoration(String hint) {
+  InputDecoration _inputDecoration(String hint, BuildContext context) {
     return InputDecoration(
       hintText: hint,
       hintStyle: const TextStyle(color: AppTheme.textLight),
@@ -555,7 +555,7 @@ Future<void> _loadMembers() async {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: AppTheme.primary, width: 2),
+        borderSide: BorderSide(color: Theme.of(context).colorScheme.primary, width: 2),
       ),
     );
   }

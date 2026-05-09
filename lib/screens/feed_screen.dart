@@ -40,9 +40,9 @@ class _FeedScreenState extends State<FeedScreen> {
             // Header
             Container(
               width: double.infinity,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [AppTheme.primary, AppTheme.secondary],
+                  colors: [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.secondary],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -80,9 +80,9 @@ class _FeedScreenState extends State<FeedScreen> {
             // Feed list
             Expanded(
               child: _isLoading
-                  ? const Center(
+                  ? Center(
                       child: CircularProgressIndicator(
-                          color: AppTheme.primary))
+                          color: Theme.of(context).colorScheme.primary))
                   : _feedItems.isEmpty
                       ? Center(
                           child: Column(
@@ -111,13 +111,13 @@ class _FeedScreenState extends State<FeedScreen> {
                         )
                       : RefreshIndicator(
                           onRefresh: _loadFeed,
-                          color: AppTheme.primary,
+                          color: Theme.of(context).colorScheme.primary,
                           child: ListView.builder(
                             padding: const EdgeInsets.all(16),
                             itemCount: _feedItems.length,
                             itemBuilder: (context, index) {
                               return _feedItem(
-                                  _feedItems[index], index);
+                                  _feedItems[index], index, context);
                             },
                           ),
                         ),
@@ -128,7 +128,7 @@ class _FeedScreenState extends State<FeedScreen> {
     );
   }
 
-  Widget _feedItem(Map<String, dynamic> item, int index) {
+  Widget _feedItem(Map<String, dynamic> item, int index, BuildContext context) {
     Color cardColor;
     Color iconColor;
     IconData iconData;
@@ -142,12 +142,12 @@ class _FeedScreenState extends State<FeedScreen> {
         break;
       case 'reward':
         cardColor = const Color(0xFFF0EEFF);
-        iconColor = AppTheme.primary;
+        iconColor = Theme.of(context).colorScheme.primary;
         iconData = Icons.card_giftcard_outlined;
         break;
       case 'transfer':
         cardColor = const Color(0xFFE8F4FF);
-        iconColor = AppTheme.secondary;
+        iconColor = Theme.of(context).colorScheme.secondary;
         iconData = Icons.swap_horiz_outlined;
         break;
       case 'time_extension':
@@ -232,7 +232,7 @@ class _FeedScreenState extends State<FeedScreen> {
                   style: TextStyle(
                     fontSize: 13,
                     color: type == 'reward'
-                        ? AppTheme.primary
+                        ? Theme.of(context).colorScheme.primary
                         : AppTheme.textDark,
                     fontWeight: type == 'reward'
                         ? FontWeight.w600

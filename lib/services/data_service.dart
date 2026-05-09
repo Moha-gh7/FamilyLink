@@ -474,6 +474,7 @@ class DataService {
 
   // ─── REDEEM REWARD ───
   Future<bool> redeemReward({
+    required String rewardId,
     required String rewardTitle,
     required int pointsCost,
   }) async {
@@ -492,6 +493,12 @@ class DataService {
           .update({'points': currentPoints - pointsCost})
           .eq('id', currentUserId!);
 
+      await _supabase.from('redemptions').insert({
+        'user_id': currentUserId,
+        'reward_id': rewardId,
+        'status': 'Pending',
+      });
+
       await _supabase.from('activity_feed').insert({
         'family_id': user['family_id'],
         'user_id': currentUserId,
@@ -501,6 +508,90 @@ class DataService {
 
       return true;
     } catch (e) {
+      // ignore: avoid_print
+      print('redeemReward ERROR: $e');
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getRedemptionRequests() async {
+    try {
+      final user = await _supabase
+          .from('users')
+          .select('family_id')
+          .eq('id', currentUserId!)
+          .single();
+
+      final familyMembers = await _supabase
+          .from('users')
+          .select('id')
+          .eq('family_id', user['family_id']);
+
+      final memberIds = (familyMembers as List).map((m) => m['id']).toList();
+
+      final redemptions = await _supabase
+          .from('redemptions')
+          .select('*, reward:rewards(title, emoji, points_cost), redeemer:users!user_id(name, avatar)')
+          .inFilter('user_id', memberIds)
+          .eq('status', 'Pending')
+          .order('redeemed_at', ascending: false);
+
+      return List<Map<String, dynamic>>.from(redemptions);
+    } catch (e) {
+      // ignore: avoid_print
+      print('getRedemptionRequests ERROR: $e');
+      return [];
+    }
+  }
+
+  Future<bool> approveRedemption(String redemptionId) async {
+    try {
+      await _supabase
+          .from('redemptions')
+          .update({'status': 'Approved'})
+          .eq('id', redemptionId);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> rejectRedemption(String redemptionId, String userId, int pointsCost) async {
+    try {
+      await _supabase
+          .from('redemptions')
+          .update({'status': 'Rejected'})
+          .eq('id', redemptionId);
+
+      final user = await _supabase
+          .from('users')
+          .select('points')
+          .eq('id', userId)
+          .single();
+
+      final currentPoints = (user['points'] ?? 0) as int;
+      await _supabase
+          .from('users')
+          .update({'points': currentPoints + pointsCost})
+          .eq('id', userId);
+
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // ─── UPDATE MEMBER ROLE ───
+  Future<bool> updateMemberRole(String userId, String role) async {
+    try {
+      await _supabase
+          .from('users')
+          .update({'role': role})
+          .eq('id', userId);
+      return true;
+    } catch (e) {
+      // ignore: avoid_print
+      print('updateMemberRole ERROR: $e');
       return false;
     }
   }
@@ -575,6 +666,21 @@ class DataService {
       }).eq('id', taskId);
       return true;
     } catch (e) {
+      return false;
+    }
+  }
+
+  // ─── DELEGATE ACCESS ───
+  Future<bool> updateDelegate(String userId, bool canApprove) async {
+    try {
+      await _supabase
+          .from('users')
+          .update({'can_approve': canApprove})
+          .eq('id', userId);
+      return true;
+    } catch (e) {
+      // ignore: avoid_print
+      print('updateDelegate ERROR: $e');
       return false;
     }
   }

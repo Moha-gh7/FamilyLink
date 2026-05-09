@@ -17,6 +17,7 @@ class _RequestsScreenState extends State<RequestsScreen>
   List<Map<String, dynamic>> _doneTasks = [];
   List<Map<String, dynamic>> _pendingApprovalTasks = [];
   List<Map<String, dynamic>> _timeExtensionTasks = [];
+  List<Map<String, dynamic>> _redemptionRequests = [];
   bool _isLoading = true;
 
   @override
@@ -31,10 +32,12 @@ class _RequestsScreenState extends State<RequestsScreen>
     final done = await _dataService.getPendingApprovals();
     final pending = await _dataService.getPendingTaskApprovals();
     final extensions = await _dataService.getTimeExtensionRequests();
+    final redemptions = await _dataService.getRedemptionRequests();
     setState(() {
       _doneTasks = done;
       _pendingApprovalTasks = pending;
       _timeExtensionTasks = extensions;
+      _redemptionRequests = redemptions;
       _isLoading = false;
     });
   }
@@ -54,7 +57,7 @@ class _RequestsScreenState extends State<RequestsScreen>
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: AppTheme.primary,
+                  color: Theme.of(context).colorScheme.primary,
                   borderRadius: const BorderRadius.vertical(
                     top: Radius.circular(16),
                   ),
@@ -87,9 +90,9 @@ class _RequestsScreenState extends State<RequestsScreen>
                     fit: BoxFit.contain,
                     loadingBuilder: (context, child, loadingProgress) {
                       if (loadingProgress == null) return child;
-                      return const Center(
+                      return Center(
                         child: CircularProgressIndicator(
-                          color: AppTheme.primary,
+                          color: Theme.of(context).colorScheme.primary,
                         ),
                       );
                     },
@@ -124,9 +127,9 @@ class _RequestsScreenState extends State<RequestsScreen>
             // Header
             Container(
               width: double.infinity,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [AppTheme.primary, AppTheme.secondary],
+                  colors: [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.secondary],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -192,15 +195,15 @@ class _RequestsScreenState extends State<RequestsScreen>
             // Tab content
             Expanded(
               child: _isLoading
-                  ? const Center(
+                  ? Center(
                       child: CircularProgressIndicator(
-                          color: AppTheme.primary))
+                          color: Theme.of(context).colorScheme.primary))
                   : TabBarView(
                       controller: _tabController,
                       children: [
                         _pendingTasksTab(),
                         _doneTab(),
-                        _emptyTab('No reward requests pending'),
+                        _redemptionsTab(),
                         _emptyTab('No transfer requests pending'),
                         _timeExtensionTab(),
                       ],
@@ -238,7 +241,7 @@ class _RequestsScreenState extends State<RequestsScreen>
     }
     return RefreshIndicator(
       onRefresh: _loadData,
-      color: AppTheme.primary,
+      color: Theme.of(context).colorScheme.primary,
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: _pendingApprovalTasks.length,
@@ -295,7 +298,7 @@ class _RequestsScreenState extends State<RequestsScreen>
     }
     return RefreshIndicator(
       onRefresh: _loadData,
-      color: AppTheme.primary,
+      color: Theme.of(context).colorScheme.primary,
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: _doneTasks.length,
@@ -310,7 +313,7 @@ class _RequestsScreenState extends State<RequestsScreen>
             title: task['title'] ?? '',
             subtitle: '$name • ${task['points']} pts',
             tag: '${task['points']} pts',
-            tagColor: AppTheme.primary,
+            tagColor: Theme.of(context).colorScheme.primary,
             extraWidget: task['photo_proof_url'] != null
                 ? Container(
                     margin: const EdgeInsets.only(top: 8),
@@ -340,15 +343,15 @@ class _RequestsScreenState extends State<RequestsScreen>
                       color: AppTheme.cardBg,
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         Icon(Icons.photo_camera_outlined,
-                            size: 14, color: AppTheme.primary),
+                            size: 14, color: Theme.of(context).colorScheme.primary),
                         SizedBox(width: 4),
                         Text('Waiting for photo proof',
                             style: TextStyle(
-                                fontSize: 11, color: AppTheme.primary)),
+                                fontSize: 11, color: Theme.of(context).colorScheme.primary)),
                       ],
                     ),
                   ),
@@ -391,13 +394,73 @@ class _RequestsScreenState extends State<RequestsScreen>
     );
   }
 
+  Widget _redemptionsTab() {
+    if (_redemptionRequests.isEmpty) {
+      return _emptyTab('No reward redemption requests');
+    }
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      color: Theme.of(context).colorScheme.primary,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: _redemptionRequests.length,
+        itemBuilder: (context, index) {
+          final r = _redemptionRequests[index];
+          final reward = r['reward'];
+          final redeemer = r['redeemer'];
+          final emoji = reward?['emoji'] ?? '🎁';
+          final title = reward?['title'] ?? 'Unknown Reward';
+          final pointsCost = (reward?['points_cost'] ?? 0) as int;
+          final name = redeemer?['name'] ?? 'Unknown';
+          final avatar = redeemer?['avatar'] ?? '👤';
+
+          return _requestCard(
+            emoji: avatar,
+            title: '$emoji $title',
+            subtitle: '$name wants to redeem • $pointsCost pts',
+            tag: 'Reward',
+            tagColor: Theme.of(context).colorScheme.primary,
+            approveLabel: 'Fulfill ✅',
+            onApprove: () async {
+              final success = await _dataService.approveRedemption(r['id']);
+              if (success) {
+                _loadData();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Reward fulfilled for $name! 🎁'),
+                      backgroundColor: AppTheme.success,
+                    ),
+                  );
+                }
+              }
+            },
+            onReject: () async {
+              await _dataService.rejectRedemption(
+                  r['id'], r['user_id'], pointsCost);
+              _loadData();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Redemption rejected — ${pointsCost} pts refunded to $name'),
+                    backgroundColor: AppTheme.error,
+                  ),
+                );
+              }
+            },
+          );
+        },
+      ),
+    );
+  }
+
   Widget _timeExtensionTab() {
     if (_timeExtensionTasks.isEmpty) {
       return _emptyTab('No time extension requests');
     }
     return RefreshIndicator(
       onRefresh: _loadData,
-      color: AppTheme.primary,
+      color: Theme.of(context).colorScheme.primary,
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: _timeExtensionTasks.length,
@@ -491,7 +554,7 @@ class _RequestsScreenState extends State<RequestsScreen>
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
-            color: AppTheme.primary.withOpacity(0.06),
+            color: Theme.of(context).colorScheme.primary.withOpacity(0.06),
             blurRadius: 6,
             offset: const Offset(0, 2),
           ),
@@ -562,13 +625,13 @@ class _RequestsScreenState extends State<RequestsScreen>
               width: double.infinity,
               child: OutlinedButton.icon(
                 onPressed: onViewPhoto,
-                icon: const Icon(Icons.photo_camera, color: AppTheme.primary),
-                label: const Text(
+                icon: Icon(Icons.photo_camera, color: Theme.of(context).colorScheme.primary),
+                label: Text(
                   'View Photo Proof',
-                  style: TextStyle(color: AppTheme.primary),
+                  style: TextStyle(color: Theme.of(context).colorScheme.primary),
                 ),
                 style: OutlinedButton.styleFrom(
-                  side: const BorderSide(color: AppTheme.primary),
+                  side: BorderSide(color: Theme.of(context).colorScheme.primary),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),

@@ -91,9 +91,9 @@ class _ChatScreenState extends State<ChatScreen> {
             // Header
             Container(
               width: double.infinity,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [AppTheme.primary, AppTheme.secondary],
+                  colors: [Theme.of(context).colorScheme.primary, Theme.of(context).colorScheme.secondary],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -139,9 +139,9 @@ class _ChatScreenState extends State<ChatScreen> {
             // Messages
             Expanded(
               child: _isLoading
-                  ? const Center(
+                  ? Center(
                       child: CircularProgressIndicator(
-                          color: AppTheme.primary))
+                          color: Theme.of(context).colorScheme.primary))
                   : _messages.isEmpty
                       ? Center(
                           child: Column(
@@ -221,7 +221,7 @@ class _ChatScreenState extends State<ChatScreen> {
                       width: 44,
                       height: 44,
                       decoration: BoxDecoration(
-                        color: AppTheme.primary,
+                        color: Theme.of(context).colorScheme.primary,
                         borderRadius: BorderRadius.circular(22),
                       ),
                       child: const Icon(Icons.send,
@@ -296,7 +296,7 @@ class _ChatScreenState extends State<ChatScreen> {
                 padding: const EdgeInsets.symmetric(
                     horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
-                  color: isMe ? AppTheme.primary : Colors.white,
+                  color: isMe ? Theme.of(context).colorScheme.primary : Colors.white,
                   borderRadius: BorderRadius.only(
                     topLeft: const Radius.circular(16),
                     topRight: const Radius.circular(16),
