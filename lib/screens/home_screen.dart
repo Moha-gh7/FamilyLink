@@ -26,23 +26,55 @@ class _HomeScreenState extends State<HomeScreen> {
   Map<String, dynamic>? _family;
   bool _isLoading = true;
 
+  // Badge state
+  int _requestsBadge = 0;
+  bool _chatBadge = false;
+  bool _feedBadge = false;
+
+  // Persists within the session — tracks when user last opened each screen
+  static DateTime? _lastChatOpen;
+  static DateTime? _lastFeedOpen;
+
   @override
   void initState() {
     super.initState();
+    // Mark everything as seen at session start — only NEW activity triggers badges
+    _lastChatOpen ??= DateTime.now();
+    _lastFeedOpen ??= DateTime.now();
     _loadData();
   }
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    final members = await _dataService.getFamilyMembers();
-    final tasks = await _dataService.getTodaysTasks();
-    final user = await _dataService.getCurrentUser();
-    final family = await _dataService.getCurrentFamily();
+
+    final results = await Future.wait([
+      _dataService.getFamilyMembers(),
+      _dataService.getTodaysTasks(),
+      _dataService.getCurrentUser(),
+      _dataService.getCurrentFamily(),
+      _dataService.getPendingRequestsCount(),
+      _dataService.getLatestMessageTime(),
+      _dataService.getLatestFeedTime(),
+    ]);
+
+    final members = results[0] as List<Map<String, dynamic>>;
+    final tasks = results[1] as List<Map<String, dynamic>>;
+    final user = results[2] as Map<String, dynamic>?;
+    final family = results[3] as Map<String, dynamic>?;
+    final requestCount = results[4] as int;
+    final latestMsg = results[5] as DateTime?;
+    final latestFeed = results[6] as DateTime?;
+
     setState(() {
       _familyMembers = members;
       _todaysTasks = tasks;
       _currentUser = user;
       _family = family;
+      _requestsBadge = requestCount;
+      _chatBadge = latestMsg != null &&
+          (_lastChatOpen == null || latestMsg.isAfter(_lastChatOpen!));
+      _feedBadge = latestFeed != null &&
+          (_lastFeedOpen == null || latestFeed.isAfter(_lastFeedOpen!));
       _isLoading = false;
     });
   }
@@ -301,7 +333,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Complete all tasks for 25% bonus points! ⭐',
+                  'Keep going — every task earns points! 💪',
                   style: TextStyle(
                     color: Colors.white.withOpacity(0.85),
                     fontSize: 12,
@@ -312,6 +344,48 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _badge({int? count, bool dot = false}) {
+    final showCount = count != null && count > 0;
+    if (!showCount && !dot) return const SizedBox.shrink();
+    return Container(
+      padding: showCount
+          ? const EdgeInsets.symmetric(horizontal: 6, vertical: 2)
+          : const EdgeInsets.all(5),
+      decoration: BoxDecoration(
+        color: Colors.red,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white, width: 1.5),
+      ),
+      child: showCount
+          ? Text(
+              count! > 99 ? '99+' : '$count',
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                height: 1,
+              ),
+            )
+          : null,
+    );
+  }
+
+  Widget _withBadge(Widget child, {int? count, bool dot = false}) {
+    final showCount = count != null && count > 0;
+    if (!showCount && !dot) return child;
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        child,
+        Positioned(
+          top: -6,
+          right: -6,
+          child: _badge(count: count, dot: dot),
+        ),
+      ],
     );
   }
 
@@ -341,11 +415,14 @@ class _HomeScreenState extends State<HomeScreen> {
                 icon: Icons.card_giftcard_outlined,
                 label: 'Rewards',
                 color: Theme.of(context).colorScheme.primary,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const RewardsScreen()),
-                ),
+                onTap: () async {
+                  await Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                        builder: (context) => const RewardsScreen()),
+                  );
+                  _loadData();
+                },
               ),
             ),
           ],
@@ -354,44 +431,70 @@ class _HomeScreenState extends State<HomeScreen> {
         Row(
           children: [
             Expanded(
-              child: _actionButton(
-                icon: Icons.timeline_outlined,
-                label: 'Feed',
-                color: Theme.of(context).colorScheme.secondary,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const FeedScreen()),
+              child: _withBadge(
+                _actionButton(
+                  icon: Icons.timeline_outlined,
+                  label: 'Feed',
+                  color: Theme.of(context).colorScheme.secondary,
+                  onTap: () async {
+                    setState(() {
+                      _lastFeedOpen = DateTime.now();
+                      _feedBadge = false;
+                    });
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const FeedScreen()),
+                    );
+                    _loadData();
+                  },
                 ),
+                dot: _feedBadge,
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: _actionButton(
-                icon: Icons.chat_bubble_outline,
-                label: 'Chat',
-                color: Theme.of(context).colorScheme.secondary,
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const ChatScreen()),
+              child: _withBadge(
+                _actionButton(
+                  icon: Icons.chat_bubble_outline,
+                  label: 'Chat',
+                  color: Theme.of(context).colorScheme.secondary,
+                  onTap: () async {
+                    setState(() {
+                      _lastChatOpen = DateTime.now();
+                      _chatBadge = false;
+                    });
+                    await Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                          builder: (context) => const ChatScreen()),
+                    );
+                    _loadData();
+                  },
                 ),
+                dot: _chatBadge,
               ),
             ),
           ],
         ),
         if (_canApprove) ...[
           const SizedBox(height: 12),
-          _actionButton(
-            icon: Icons.notifications_outlined,
-            label: 'Requests',
-            color: AppTheme.accent,
-            onTap: () => Navigator.push(
-              context,
-              MaterialPageRoute(
-                  builder: (context) => const RequestsScreen()),
+          _withBadge(
+            _actionButton(
+              icon: Icons.notifications_outlined,
+              label: 'Requests',
+              color: AppTheme.accent,
+              onTap: () async {
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const RequestsScreen()),
+                );
+                _loadData();
+              },
+              fullWidth: true,
             ),
-            fullWidth: true,
+            count: _requestsBadge,
           ),
         ],
       ],

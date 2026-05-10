@@ -15,6 +15,7 @@ class _RequestsScreenState extends State<RequestsScreen>
   final _dataService = DataService();
 
   List<Map<String, dynamic>> _doneTasks = [];
+  List<Map<String, dynamic>> _transferRequests = [];
   List<Map<String, dynamic>> _pendingApprovalTasks = [];
   List<Map<String, dynamic>> _timeExtensionTasks = [];
   List<Map<String, dynamic>> _redemptionRequests = [];
@@ -29,15 +30,19 @@ class _RequestsScreenState extends State<RequestsScreen>
 
   Future<void> _loadData() async {
     setState(() => _isLoading = true);
-    final done = await _dataService.getPendingApprovals();
-    final pending = await _dataService.getPendingTaskApprovals();
-    final extensions = await _dataService.getTimeExtensionRequests();
-    final redemptions = await _dataService.getRedemptionRequests();
+    final results = await Future.wait([
+      _dataService.getPendingApprovals(),
+      _dataService.getPendingTaskApprovals(),
+      _dataService.getTimeExtensionRequests(),
+      _dataService.getRedemptionRequests(),
+      _dataService.getTransferRequests(),
+    ]);
     setState(() {
-      _doneTasks = done;
-      _pendingApprovalTasks = pending;
-      _timeExtensionTasks = extensions;
-      _redemptionRequests = redemptions;
+      _doneTasks = results[0] as List<Map<String, dynamic>>;
+      _pendingApprovalTasks = results[1] as List<Map<String, dynamic>>;
+      _timeExtensionTasks = results[2] as List<Map<String, dynamic>>;
+      _redemptionRequests = results[3] as List<Map<String, dynamic>>;
+      _transferRequests = results[4] as List<Map<String, dynamic>>;
       _isLoading = false;
     });
   }
@@ -163,7 +168,7 @@ class _RequestsScreenState extends State<RequestsScreen>
                   Padding(
                     padding: const EdgeInsets.only(left: 8, bottom: 16),
                     child: Text(
-                      '${_doneTasks.length} pending requests',
+                      '${_pendingApprovalTasks.length + _doneTasks.length + _redemptionRequests.length + _transferRequests.length + _timeExtensionTasks.length} pending requests',
                       style: const TextStyle(
                         fontSize: 13,
                         color: Colors.white70,
@@ -180,12 +185,12 @@ class _RequestsScreenState extends State<RequestsScreen>
                       fontWeight: FontWeight.bold,
                       fontSize: 13,
                     ),
-                    tabs: const [
-                      Tab(text: 'Tasks'),
-                      Tab(text: 'Done'),
-                      Tab(text: 'Rewards'),
-                      Tab(text: 'Transfers'),
-                      Tab(text: 'Time'),
+                    tabs: [
+                      _tabWithBadge('Tasks', _pendingApprovalTasks.isNotEmpty),
+                      _tabWithBadge('Done', _doneTasks.isNotEmpty),
+                      _tabWithBadge('Rewards', _redemptionRequests.isNotEmpty),
+                      _tabWithBadge('Transfers', _transferRequests.isNotEmpty),
+                      _tabWithBadge('Time', _timeExtensionTasks.isNotEmpty),
                     ],
                   ),
                 ],
@@ -204,13 +209,41 @@ class _RequestsScreenState extends State<RequestsScreen>
                         _pendingTasksTab(),
                         _doneTab(),
                         _redemptionsTab(),
-                        _emptyTab('No transfer requests pending'),
+                        _transfersTab(),
                         _timeExtensionTab(),
                       ],
                     ),
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _tabWithBadge(String label, bool hasBadge) {
+    return Tab(
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Padding(
+            padding: EdgeInsets.only(right: hasBadge ? 10 : 0),
+            child: Text(label),
+          ),
+          if (hasBadge)
+            Positioned(
+              top: -2,
+              right: -4,
+              child: Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: Colors.white, width: 1),
+                ),
+              ),
+            ),
+        ],
       ),
     );
   }
@@ -263,7 +296,8 @@ class _RequestsScreenState extends State<RequestsScreen>
             onApprove: () async {
               final success = await _dataService.approveTaskCreation(task['id']);
               if (success) {
-                _loadData();
+                if (!mounted) return;
+                await _loadData();
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -276,7 +310,8 @@ class _RequestsScreenState extends State<RequestsScreen>
             },
             onReject: () async {
               await _dataService.rejectTaskCreation(task['id']);
-              _loadData();
+              if (!mounted) return;
+              await _loadData();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -361,7 +396,8 @@ class _RequestsScreenState extends State<RequestsScreen>
               final success = await _dataService.approveTask(
                   task['id'], points, assignedTo);
               if (success) {
-                _loadData();
+                if (!mounted) return;
+                await _loadData();
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
@@ -375,7 +411,8 @@ class _RequestsScreenState extends State<RequestsScreen>
             onReject: () async {
               await _dataService.updateTaskStatus(
                   task['id'], 'Pending');
-              _loadData();
+              if (!mounted) return;
+              await _loadData();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -424,7 +461,8 @@ class _RequestsScreenState extends State<RequestsScreen>
             onApprove: () async {
               final success = await _dataService.approveRedemption(r['id']);
               if (success) {
-                _loadData();
+                if (!mounted) return;
+                await _loadData();
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -438,11 +476,75 @@ class _RequestsScreenState extends State<RequestsScreen>
             onReject: () async {
               await _dataService.rejectRedemption(
                   r['id'], r['user_id'], pointsCost);
-              _loadData();
+              if (!mounted) return;
+              await _loadData();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   SnackBar(
                     content: Text('Redemption rejected — ${pointsCost} pts refunded to $name'),
+                    backgroundColor: AppTheme.error,
+                  ),
+                );
+              }
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _transfersTab() {
+    if (_transferRequests.isEmpty) {
+      return _emptyTab('No transfer requests pending');
+    }
+    return RefreshIndicator(
+      onRefresh: _loadData,
+      color: Theme.of(context).colorScheme.primary,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(16),
+        itemCount: _transferRequests.length,
+        itemBuilder: (context, index) {
+          final task = _transferRequests[index];
+          final from = task['assigned_user'];
+          final to = task['transfer_to'];
+          final fromName = from?['name'] ?? 'Unknown';
+          final fromAvatar = from?['avatar'] ?? '👤';
+          final toName = to?['name'] ?? 'Unknown';
+          final toAvatar = to?['avatar'] ?? '👤';
+
+          return _requestCard(
+            emoji: fromAvatar,
+            title: task['title'] ?? '',
+            subtitle: '$fromName → $toAvatar $toName',
+            tag: 'Transfer',
+            tagColor: Colors.blue,
+            approveLabel: 'Approve ✅',
+            onApprove: () async {
+              final success = await _dataService.approveTransfer(
+                task['id'],
+                task['transfer_requested_to'],
+              );
+              if (success) {
+                if (!mounted) return;
+                await _loadData();
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Task transferred to $toName ✅'),
+                      backgroundColor: AppTheme.success,
+                    ),
+                  );
+                }
+              }
+            },
+            onReject: () async {
+              await _dataService.rejectTransfer(task['id']);
+              if (!mounted) return;
+              await _loadData();
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('Transfer rejected — task stays with $fromName'),
                     backgroundColor: AppTheme.error,
                   ),
                 );
@@ -505,7 +607,8 @@ class _RequestsScreenState extends State<RequestsScreen>
             onApprove: () async {
               final success = await _dataService.approveTimeExtension(task['id'], dueDate);
               if (success) {
-                _loadData();
+                if (!mounted) return;
+                await _loadData();
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
@@ -518,7 +621,8 @@ class _RequestsScreenState extends State<RequestsScreen>
             },
             onReject: () async {
               await _dataService.rejectTimeExtension(task['id']);
-              _loadData();
+              if (!mounted) return;
+              await _loadData();
               if (mounted) {
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(
@@ -540,8 +644,8 @@ class _RequestsScreenState extends State<RequestsScreen>
     required String subtitle,
     required String tag,
     required Color tagColor,
-    required VoidCallback onApprove,
-    required VoidCallback onReject,
+    required Future<void> Function() onApprove,
+    required Future<void> Function() onReject,
     VoidCallback? onViewPhoto,
     String approveLabel = 'Approve',
     Widget? extraWidget,
@@ -645,7 +749,7 @@ class _RequestsScreenState extends State<RequestsScreen>
             children: [
               Expanded(
                 child: OutlinedButton(
-                  onPressed: onReject,
+                  onPressed: () async => await onReject(),
                   style: OutlinedButton.styleFrom(
                     side: BorderSide(color: AppTheme.error),
                     shape: RoundedRectangleBorder(
@@ -665,7 +769,7 @@ class _RequestsScreenState extends State<RequestsScreen>
               const SizedBox(width: 10),
               Expanded(
                 child: ElevatedButton(
-                  onPressed: onApprove,
+                  onPressed: () async => await onApprove(),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.success,
                     shape: RoundedRectangleBorder(

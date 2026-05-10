@@ -19,13 +19,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
   bool _isLoading = false;
   int _selectedAvatar = 0;
 
-  final List<Map<String, dynamic>> _avatars = [
-    {'emoji': '👨', 'label': 'Dad'},
-    {'emoji': '👩', 'label': 'Mom'},
-    {'emoji': '👦', 'label': 'Son'},
-    {'emoji': '👧', 'label': 'Daughter'},
-    {'emoji': '👴', 'label': 'Grandpa'},
-    {'emoji': '👵', 'label': 'Grandma'},
+  String _selectedEmoji = '🦸';
+
+  static const _emojiCategories = [
+    {'label': '🦸 Heroes', 'emojis': ['🦸','🦹','🧙','🧚','🧜','🧝','🧞','🧟','👻','🤖','👽','🎅','🥷','🧑‍🚀','🦄','🐲','🧛','🧌','👾','🎃']},
+    {'label': '🐾 Animals', 'emojis': ['🦊','🐺','🦁','🐯','🐻','🐼','🐨','🐸','🦝','🐧','🦅','🦉','🐬','🦈','🦋','🦓','🦒','🦘','🦔','🐙']},
+    {'label': '⚡ Action', 'emojis': ['🏄','🧗','🤸','🏇','🤺','⛷️','🏊','🚵','🤼','🥊','🏋️','🤾','🧘','🪂','🏌️','🤽','🚴','🤙','🏹','🎿']},
+    {'label': '🎭 Roles', 'emojis': ['🧑‍🍳','🧑‍🎨','🧑‍🔬','🧑‍💻','🧑‍🏫','🧑‍⚕️','🧑‍🌾','🧑‍🔧','🧑‍✈️','🧑‍🎤','🧑‍🎓','🕵️','👮','💂','🧑‍🚒','🤴','👸','🫅','🥸','🤠']},
   ];
 
   @override
@@ -52,11 +52,11 @@ class _RegisterScreenState extends State<RegisterScreen> {
     setState(() => _isLoading = true);
 
     final result = await _authService.createFamily(
-      familyName: _familyNameController.text.trim(),
+      familyName: '${_familyNameController.text.trim()} Family',
       name: _nameController.text.trim(),
       email: _emailController.text.trim(),
       password: _passwordController.text,
-      avatar: _avatars[_selectedAvatar]['emoji'],
+      avatar: _selectedEmoji,
     );
 
     if (!mounted) return;
@@ -146,6 +146,96 @@ class _RegisterScreenState extends State<RegisterScreen> {
     }
   }
 
+  void _showAvatarPicker(BuildContext context) {
+    int selectedCategory = 0;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          final emojis = _emojiCategories[selectedCategory]['emojis'] as List<String>;
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.65,
+            decoration: const BoxDecoration(
+              color: AppTheme.background,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 16),
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2)),
+                ),
+                const Text('Choose Avatar', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textDark)),
+                const SizedBox(height: 16),
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: _emojiCategories.asMap().entries.map((entry) {
+                      final isSelected = selectedCategory == entry.key;
+                      return GestureDetector(
+                        onTap: () => setSheetState(() => selectedCategory = entry.key),
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isSelected ? Theme.of(context).colorScheme.primary : AppTheme.cardBg,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(entry.value['label'] as String,
+                            style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                              color: isSelected ? Colors.white : AppTheme.textMedium)),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Expanded(
+                  child: GridView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 5, crossAxisSpacing: 12, mainAxisSpacing: 12,
+                    ),
+                    itemCount: emojis.length,
+                    itemBuilder: (_, i) {
+                      final emoji = emojis[i];
+                      final isSelected = _selectedEmoji == emoji;
+                      return GestureDetector(
+                        onTap: () {
+                          setState(() => _selectedEmoji = emoji);
+                          Navigator.pop(ctx);
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? Theme.of(context).colorScheme.primary.withOpacity(0.15)
+                                : AppTheme.surface,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isSelected ? Theme.of(context).colorScheme.primary : Colors.transparent,
+                              width: 2,
+                            ),
+                          ),
+                          child: Center(child: Text(emoji, style: const TextStyle(fontSize: 32))),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -183,62 +273,41 @@ class _RegisterScreenState extends State<RegisterScreen> {
               // Avatar picker
               const Text(
                 'Choose your avatar',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: AppTheme.textDark,
-                ),
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: AppTheme.textDark),
               ),
               const SizedBox(height: 12),
-              SizedBox(
-                height: 90,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _avatars.length,
-                  itemBuilder: (context, index) {
-                    final isSelected = _selectedAvatar == index;
-                    return GestureDetector(
-                      onTap: () => setState(() => _selectedAvatar = index),
-                      child: Container(
-                        margin: const EdgeInsets.only(right: 12),
+              GestureDetector(
+                onTap: () => _showAvatarPicker(context),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: AppTheme.cardBg,
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Theme.of(context).colorScheme.primary.withOpacity(0.3)),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 52, height: 52,
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(26),
+                        ),
+                        child: Center(child: Text(_selectedEmoji, style: const TextStyle(fontSize: 30))),
+                      ),
+                      const SizedBox(width: 14),
+                      const Expanded(
                         child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Container(
-                              width: 60,
-                              height: 60,
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? AppTheme.primary
-                                    : AppTheme.cardBg,
-                                borderRadius: BorderRadius.circular(30),
-                                border: isSelected
-                                    ? Border.all(
-                                        color: AppTheme.primary, width: 3)
-                                    : null,
-                              ),
-                              child: Center(
-                                child: Text(_avatars[index]['emoji'],
-                                    style: const TextStyle(fontSize: 30)),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _avatars[index]['label'],
-                              style: TextStyle(
-                                fontSize: 11,
-                                color: isSelected
-                                    ? AppTheme.primary
-                                    : AppTheme.textMedium,
-                                fontWeight: isSelected
-                                    ? FontWeight.bold
-                                    : FontWeight.normal,
-                              ),
-                            ),
+                            Text('Your Avatar', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppTheme.textDark)),
+                            Text('Tap to pick a character', style: TextStyle(fontSize: 12, color: AppTheme.textMedium)),
                           ],
                         ),
                       ),
-                    );
-                  },
+                      const Icon(Icons.chevron_right, color: AppTheme.textLight),
+                    ],
+                  ),
                 ),
               ),
 
@@ -249,7 +318,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                 controller: _familyNameController,
                 decoration: InputDecoration(
                   labelText: 'Family Name',
-                  hintText: 'e.g. Al-Hassan Family',
+                  hintText: 'e.g. Al-Hassan',
                   prefixIcon: const Icon(Icons.home_outlined,
                       color: AppTheme.primary),
                   border: OutlineInputBorder(

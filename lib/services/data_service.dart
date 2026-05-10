@@ -413,7 +413,7 @@ class DataService {
     try {
       final task = await _supabase
           .from('tasks')
-          .select('title, family_id, assigned_user:users!assigned_to(name)')
+          .select('title, family_id, assigned_to, description, difficulty, recurrence, points, due_date, assigned_user:users!assigned_to(name)')
           .eq('id', taskId)
           .single();
 
@@ -433,14 +433,40 @@ class DataService {
         'content': '$assignedName completed "${task['title']}" and earned $points pts! 🎉',
       });
 
+      // Auto-create next occurrence for recurring tasks
+      final recurrence = task['recurrence'] ?? 'None';
+      if (recurrence != 'None') {
+        final oldDue = task['due_date'] != null
+            ? DateTime.parse(task['due_date'])
+            : DateTime.now();
+        final nextDue = recurrence == 'Daily'
+            ? oldDue.add(const Duration(days: 1))
+            : oldDue.add(const Duration(days: 7));
+
+        await _supabase.from('tasks').insert({
+          'family_id': task['family_id'],
+          'title': task['title'],
+          'description': task['description'] ?? '',
+          'assigned_to': task['assigned_to'],
+          'created_by': currentUserId,
+          'due_date': nextDue.toIso8601String(),
+          'difficulty': task['difficulty'] ?? 'Medium',
+          'recurrence': recurrence,
+          'points': task['points'] ?? 0,
+          'status': 'Pending',
+        });
+      }
+
       return true;
     } catch (e) {
+      // ignore: avoid_print
+      print('approveTask ERROR: $e');
       return false;
     }
   }
 
-  // ─── TRANSFER TASK ───
-  Future<bool> transferTask(String taskId, String newAssignedToId) async {
+  // ─── TRANSFER TASK (creates a pending request for parent approval) ───
+  Future<bool> requestTransfer(String taskId, String newAssignedToId) async {
     try {
       final task = await _supabase
           .from('tasks')
@@ -456,16 +482,84 @@ class DataService {
 
       await _supabase
           .from('tasks')
-          .update({'assigned_to': newAssignedToId})
+          .update({'transfer_requested_to': newAssignedToId})
           .eq('id', taskId);
 
       await _supabase.from('activity_feed').insert({
         'family_id': task['family_id'],
         'user_id': currentUserId,
         'type': 'transfer',
-        'content': 'Task "${task['title']}" was transferred to ${newUser['name']}',
+        'content': 'Transfer request: "${task['title']}" → ${newUser['name']} (awaiting approval)',
       });
 
+      return true;
+    } catch (e) {
+      // ignore: avoid_print
+      print('requestTransfer ERROR: $e');
+      return false;
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> getTransferRequests() async {
+    try {
+      final user = await _supabase
+          .from('users')
+          .select('family_id')
+          .eq('id', currentUserId!)
+          .single();
+
+      final tasks = await _supabase
+          .from('tasks')
+          .select('*, assigned_user:users!assigned_to(name, avatar), transfer_to:users!transfer_requested_to(name, avatar)')
+          .eq('family_id', user['family_id'])
+          .not('transfer_requested_to', 'is', null)
+          .order('created_at', ascending: false);
+
+      return List<Map<String, dynamic>>.from(tasks);
+    } catch (e) {
+      // ignore: avoid_print
+      print('getTransferRequests ERROR: $e');
+      return [];
+    }
+  }
+
+  Future<bool> approveTransfer(String taskId, String newAssignedToId) async {
+    try {
+      final task = await _supabase
+          .from('tasks')
+          .select('title, family_id')
+          .eq('id', taskId)
+          .single();
+
+      final newUser = await _supabase
+          .from('users')
+          .select('name')
+          .eq('id', newAssignedToId)
+          .single();
+
+      await _supabase.from('tasks').update({
+        'assigned_to': newAssignedToId,
+        'transfer_requested_to': null,
+      }).eq('id', taskId);
+
+      await _supabase.from('activity_feed').insert({
+        'family_id': task['family_id'],
+        'user_id': currentUserId,
+        'type': 'transfer',
+        'content': 'Task "${task['title']}" was transferred to ${newUser['name']} ✅',
+      });
+
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  Future<bool> rejectTransfer(String taskId) async {
+    try {
+      await _supabase.from('tasks').update({
+        'transfer_requested_to': null,
+      }).eq('id', taskId);
       return true;
     } catch (e) {
       return false;
@@ -667,6 +761,57 @@ class DataService {
       return true;
     } catch (e) {
       return false;
+    }
+  }
+
+  // ─── BADGE COUNTS ───
+  Future<int> getPendingRequestsCount() async {
+    try {
+      final user = await _supabase
+          .from('users')
+          .select('family_id')
+          .eq('id', currentUserId!)
+          .single();
+      final familyId = user['family_id'];
+
+      final results = await Future.wait([
+        _supabase.from('tasks').select('id').eq('family_id', familyId).eq('status', 'Pending Approval'),
+        _supabase.from('tasks').select('id').eq('family_id', familyId).eq('status', 'Done'),
+        _supabase.from('tasks').select('id').eq('family_id', familyId).eq('extension_requested', true),
+      ]);
+
+      final familyMembers = await _supabase.from('users').select('id').eq('family_id', familyId);
+      final memberIds = (familyMembers as List).map((m) => m['id']).toList();
+      final redemptions = await _supabase.from('redemptions').select('id').inFilter('user_id', memberIds).eq('status', 'Pending');
+
+      int total = 0;
+      for (final r in results) total += (r as List).length;
+      total += (redemptions as List).length;
+      return total;
+    } catch (e) {
+      return 0;
+    }
+  }
+
+  Future<DateTime?> getLatestMessageTime() async {
+    try {
+      final user = await _supabase.from('users').select('family_id').eq('id', currentUserId!).single();
+      final msgs = await _supabase.from('messages').select('created_at').eq('family_id', user['family_id']).order('created_at', ascending: false).limit(1);
+      if ((msgs as List).isEmpty) return null;
+      return DateTime.parse(msgs[0]['created_at']);
+    } catch (e) {
+      return null;
+    }
+  }
+
+  Future<DateTime?> getLatestFeedTime() async {
+    try {
+      final user = await _supabase.from('users').select('family_id').eq('id', currentUserId!).single();
+      final feed = await _supabase.from('activity_feed').select('created_at').eq('family_id', user['family_id']).order('created_at', ascending: false).limit(1);
+      if ((feed as List).isEmpty) return null;
+      return DateTime.parse(feed[0]['created_at']);
+    } catch (e) {
+      return null;
     }
   }
 

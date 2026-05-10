@@ -251,22 +251,21 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                 : () async {
                     Navigator.pop(dialogContext);
                     setState(() => _isLoading = true);
-                    final success = await _dataService.transferTask(
+                    final success = await _dataService.requestTransfer(
                         _task['id'], selectedMemberId!);
                     if (!mounted) return;
                     setState(() => _isLoading = false);
                     if (success) {
-                      setState(() => _task['assigned_to'] = selectedMemberId);
                       ScaffoldMessenger.of(screenContext).showSnackBar(
                         SnackBar(
-                          content: Text('Task transferred to $selectedMemberName ✅'),
+                          content: Text('Transfer request sent to parent for approval ✅'),
                           backgroundColor: AppTheme.success,
                         ),
                       );
                     } else {
                       ScaffoldMessenger.of(screenContext).showSnackBar(
                         const SnackBar(
-                          content: Text('Transfer failed. Try again.'),
+                          content: Text('Transfer request failed. Try again.'),
                           backgroundColor: AppTheme.error,
                         ),
                       );
@@ -653,7 +652,6 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                               ),
                             ],
                             const SizedBox(height: 12),
-                            // Only show Mark as Done after photo is uploaded
                             if (_photoProofUrl != null)
                               SizedBox(
                                 width: double.infinity,
@@ -661,21 +659,40 @@ class _TaskDetailScreenState extends State<TaskDetailScreen> {
                                   onPressed: _isLoading ? null : _markAsDone,
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: AppTheme.success,
-                                    padding: const EdgeInsets.symmetric(
-                                        vertical: 14),
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
                                     shape: RoundedRectangleBorder(
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                   ),
-                                  child: const Text(
-                                    'Mark as Done',
-                                    style: TextStyle(
-                                      fontSize: 15,
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.white,
-                                    ),
+                                  child: const Text('Mark as Done',
+                                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Colors.white),
                                   ),
                                 ),
+                              ),
+                            if (_photoProofUrl == null)
+                              TextButton(
+                                onPressed: _isLoading ? null : () async {
+                                  final confirm = await showDialog<bool>(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                      title: const Text('Skip Photo?'),
+                                      content: const Text('Are you sure you want to mark this task as done without a photo? Your parent may ask for proof.'),
+                                      actions: [
+                                        TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                                        ElevatedButton(
+                                          onPressed: () => Navigator.pop(ctx, true),
+                                          style: ElevatedButton.styleFrom(backgroundColor: AppTheme.warning),
+                                          child: const Text('Skip & Submit', style: TextStyle(color: Colors.white)),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                  if (confirm == true) _markAsDone();
+                                },
+                                child: Text('Skip photo & mark as done',
+                                  style: TextStyle(fontSize: 13, color: AppTheme.textMedium,
+                                    decoration: TextDecoration.underline)),
                               ),
                           ],
                         ),

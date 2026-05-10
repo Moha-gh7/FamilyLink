@@ -22,22 +22,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   List<Map<String, dynamic>> _familyMembers = [];
   bool _isLoading = true;
 
-  bool _taskAssignments = true;
-  bool _taskCompletions = true;
-  bool _transferRequests = true;
-  bool _rewards = true;
-  bool _dailySummary = false;
 
-  final List<Map<String, dynamic>> _avatars = [
-    {'emoji': '👨', 'label': 'Dad'},
-    {'emoji': '👩', 'label': 'Mom'},
-    {'emoji': '👦', 'label': 'Son'},
-    {'emoji': '👧', 'label': 'Daughter'},
-    {'emoji': '👴', 'label': 'Grandpa'},
-    {'emoji': '👵', 'label': 'Grandma'},
-  ];
-
-  int _selectedAvatar = 0;
 
   @override
   void initState() {
@@ -54,12 +39,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       _family = family;
       _familyMembers = members;
       _isLoading = false;
-      // Set selected avatar based on current avatar
-      if (user != null) {
-        final avatarIndex = _avatars
-            .indexWhere((a) => a['emoji'] == user['avatar']);
-        if (avatarIndex != -1) _selectedAvatar = avatarIndex;
-      }
     });
   }
 
@@ -166,23 +145,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
   }
 
-  Future<void> _saveAvatarChange(int newIndex) async {
-    final newAvatar = _avatars[newIndex]['emoji'];
-    final success = await _dataService.updateUserAvatar(newAvatar);
-    if (success && mounted) {
-      setState(() {
-        _selectedAvatar = newIndex;
-        _currentUser?['avatar'] = newAvatar;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Avatar updated!'),
-          backgroundColor: Theme.of(context).colorScheme.primary,
-          duration: const Duration(seconds: 1),
-        ),
-      );
-    }
-  }
 
   Future<void> _signOut() async {
     await Supabase.instance.client.auth.signOut();
@@ -236,11 +198,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         _buildManageFamilyCard(),
                         const SizedBox(height: 20),
                       ],
-                      // Notifications
-                      _sectionTitle('🔔 Notifications'),
-                      const SizedBox(height: 10),
-                      _buildNotificationsCard(),
-                      const SizedBox(height: 20),
                       // Theme picker
                       _sectionTitle('🎨 App Theme'),
                       const SizedBox(height: 10),
@@ -270,10 +227,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       _sectionTitle('👨‍👩‍👧‍👦 Family'),
                       const SizedBox(height: 10),
                       SkeletonSettingsCard(itemCount: 2),
-                      const SizedBox(height: 20),
-                      _sectionTitle('🔔 Notifications'),
-                      const SizedBox(height: 10),
-                      SkeletonSettingsCard(itemCount: 5),
                       const SizedBox(height: 20),
                       _sectionTitle('ℹ️ About'),
                       const SizedBox(height: 10),
@@ -381,75 +334,26 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           onTap: null,
         ),
         _divider(),
-        Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Avatar',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: AppTheme.textDark,
-                  )),
-              const SizedBox(height: 10),
-              SizedBox(
-                height: 70,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: _avatars.length,
-                  itemBuilder: (context, index) {
-                    final isSelected =
-                        _selectedAvatar == index;
-                    return GestureDetector(
-                      onTap: () => _saveAvatarChange(index),
-                      child: Container(
-                        margin: const EdgeInsets.only(
-                            right: 10),
-                        child: Column(
-                          children: [
-                            Container(
-                              width: 44,
-                              height: 44,
-                              decoration: BoxDecoration(
-                                color: isSelected
-                                    ? Theme.of(context).colorScheme.primary
-                                    : AppTheme.cardBg,
-                                borderRadius:
-                                    BorderRadius.circular(22),
-                                border: isSelected
-                                    ? Border.all(
-                                        color: Theme.of(context).colorScheme.primary,
-                                        width: 2)
-                                    : null,
-                              ),
-                              child: Center(
-                                child: Text(
-                                  _avatars[index]['emoji'],
-                                  style: const TextStyle(
-                                      fontSize: 24),
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              _avatars[index]['label'],
-                              style: TextStyle(
-                                fontSize: 9,
-                                color: isSelected
-                                    ? Theme.of(context).colorScheme.primary
-                                    : AppTheme.textMedium,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
-                ),
+        ListTile(
+          leading: Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.primary.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(21),
+            ),
+            child: Center(
+              child: Text(
+                _currentUser?['avatar'] ?? '😀',
+                style: const TextStyle(fontSize: 24),
               ),
-            ],
+            ),
           ),
+          title: const Text('Avatar',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: AppTheme.textDark)),
+          subtitle: const Text('Tap to change', style: TextStyle(fontSize: 12, color: AppTheme.textMedium)),
+          trailing: const Icon(Icons.chevron_right, color: AppTheme.textLight, size: 18),
+          onTap: _showAvatarPicker,
         ),
       ],
     );
@@ -700,49 +604,148 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     return _settingsCard(children: rows);
   }
 
-  Widget _buildNotificationsCard() {
-    return _settingsCard(
-      children: [
-        _toggleRow(
-          title: 'Task Assignments',
-          subtitle: 'Get notified when tasks are assigned',
-          value: _taskAssignments,
-          onChanged: (val) =>
-              setState(() => _taskAssignments = val),
-        ),
-        _divider(),
-        _toggleRow(
-          title: 'Task Completions',
-          subtitle: 'Updates when tasks are completed',
-          value: _taskCompletions,
-          onChanged: (val) =>
-              setState(() => _taskCompletions = val),
-        ),
-        _divider(),
-        _toggleRow(
-          title: 'Transfer Requests',
-          subtitle: 'When someone sends you a task',
-          value: _transferRequests,
-          onChanged: (val) =>
-              setState(() => _transferRequests = val),
-        ),
-        _divider(),
-        _toggleRow(
-          title: 'Rewards',
-          subtitle: 'Reward unlocks and redemptions',
-          value: _rewards,
-          onChanged: (val) =>
-              setState(() => _rewards = val),
-        ),
-        _divider(),
-        _toggleRow(
-          title: 'Daily Summary',
-          subtitle: 'Daily progress report',
-          value: _dailySummary,
-          onChanged: (val) =>
-              setState(() => _dailySummary = val),
-        ),
-      ],
+  void _showAvatarPicker() {
+    const categories = [
+      {
+        'label': '🦸 Heroes',
+        'emojis': ['🦸','🦹','🧙','🧚','🧜','🧝','🧞','🧟','👻','🤖','👽','🎅','🥷','🧑‍🚀','🦄','🐲','🧛','🧌','👾','🎃'],
+      },
+      {
+        'label': '🐾 Animals',
+        'emojis': ['🦊','🐺','🦁','🐯','🐻','🐼','🐨','🐸','🦝','🐧','🦅','🦉','🐬','🦈','🦋','🦓','🦒','🦘','🦔','🐙'],
+      },
+      {
+        'label': '⚡ Action',
+        'emojis': ['🏄','🧗','🤸','🏇','🤺','⛷️','🏊','🚵','🤼','🥊','🏋️','🤾','🧘','🪂','🏌️','🤽','🚴','🤙','🏹','🎿'],
+      },
+      {
+        'label': '🎭 Roles',
+        'emojis': ['🧑‍🍳','🧑‍🎨','🧑‍🔬','🧑‍💻','🧑‍🏫','🧑‍⚕️','🧑‍🌾','🧑‍🔧','🧑‍✈️','🧑‍🎤','🧑‍🎓','🕵️','👮','💂','🧑‍🚒','🧑‍🦯','🧑‍🦼','🤴','👸','🫅'],
+      },
+    ];
+
+    int selectedCategory = 0;
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setSheetState) {
+          final emojis = categories[selectedCategory]['emojis'] as List<String>;
+          return Container(
+            height: MediaQuery.of(context).size.height * 0.65,
+            decoration: const BoxDecoration(
+              color: AppTheme.background,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            ),
+            child: Column(
+              children: [
+                // Handle
+                Container(
+                  margin: const EdgeInsets.only(top: 12, bottom: 16),
+                  width: 40, height: 4,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const Text('Choose Avatar',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppTheme.textDark)),
+                const SizedBox(height: 16),
+                // Category tabs
+                SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Row(
+                    children: categories.asMap().entries.map((entry) {
+                      final isSelected = selectedCategory == entry.key;
+                      return GestureDetector(
+                        onTap: () => setSheetState(() => selectedCategory = entry.key),
+                        child: Container(
+                          margin: const EdgeInsets.only(right: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? Theme.of(context).colorScheme.primary
+                                : AppTheme.cardBg,
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(
+                            entry.value['label'] as String,
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w600,
+                              color: isSelected ? Colors.white : AppTheme.textMedium,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                // Emoji grid
+                Expanded(
+                  child: GridView.builder(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 5,
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                    ),
+                    itemCount: emojis.length,
+                    itemBuilder: (_, i) {
+                      final emoji = emojis[i];
+                      final isSelected = _currentUser?['avatar'] == emoji;
+                      return GestureDetector(
+                        onTap: () async {
+                          Navigator.pop(ctx);
+                          final success = await _dataService.updateUserAvatar(emoji);
+                          if (success && mounted) {
+                            setState(() => _currentUser?['avatar'] = emoji);
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: const Text('Avatar updated!'),
+                              backgroundColor: Theme.of(context).colorScheme.primary,
+                              duration: const Duration(seconds: 1),
+                            ));
+                          }
+                        },
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 150),
+                          decoration: BoxDecoration(
+                            color: isSelected
+                                ? Theme.of(context).colorScheme.primary.withOpacity(0.15)
+                                : AppTheme.surface,
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: isSelected
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Colors.transparent,
+                              width: 2,
+                            ),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.04),
+                                blurRadius: 4,
+                                offset: const Offset(0, 2),
+                              ),
+                            ],
+                          ),
+                          child: Center(
+                            child: Text(emoji, style: const TextStyle(fontSize: 32)),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 
@@ -845,28 +848,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ],
       ),
       onTap: onTap,
-    );
-  }
-
-  Widget _toggleRow({
-    required String title,
-    required String subtitle,
-    required bool value,
-    required Function(bool) onChanged,
-  }) {
-    return SwitchListTile(
-      title: Text(title,
-          style: const TextStyle(
-            fontSize: 14,
-            fontWeight: FontWeight.w500,
-            color: AppTheme.textDark,
-          )),
-      subtitle: Text(subtitle,
-          style: const TextStyle(
-              fontSize: 12, color: AppTheme.textMedium)),
-      value: value,
-      onChanged: onChanged,
-      activeColor: Theme.of(context).colorScheme.primary,
     );
   }
 

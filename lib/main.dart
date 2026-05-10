@@ -6,6 +6,7 @@ import 'providers/theme_provider.dart';
 import 'screens/home_screen.dart';
 import 'supabase_config.dart';
 import 'screens/auth/login_screen.dart';
+import 'screens/auth/reset_password_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,14 +23,35 @@ void main() async {
   );
 }
 
-class FamilyLinkApp extends ConsumerWidget {
+class FamilyLinkApp extends ConsumerStatefulWidget {
   const FamilyLinkApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<FamilyLinkApp> createState() => _FamilyLinkAppState();
+}
+
+class _FamilyLinkAppState extends ConsumerState<FamilyLinkApp> {
+  final _navigatorKey = GlobalKey<NavigatorState>();
+
+  @override
+  void initState() {
+    super.initState();
+    Supabase.instance.client.auth.onAuthStateChange.listen((data) {
+      if (data.event == AuthChangeEvent.passwordRecovery) {
+        _navigatorKey.currentState?.pushAndRemoveUntil(
+          MaterialPageRoute(builder: (_) => const ResetPasswordScreen()),
+          (route) => false,
+        );
+      }
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final themeIndex = ref.watch(themeIndexProvider);
     final config = AppTheme.themes[themeIndex];
     return MaterialApp(
+      navigatorKey: _navigatorKey,
       title: 'FamilyLink',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.buildTheme(config),
